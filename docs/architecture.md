@@ -971,7 +971,8 @@ class Pricing:
 def all_in_rate(base_rate: Decimal, spread_pct: Decimal) -> Decimal
 def shocked_rate(all_in_rate: Decimal, shock_bp: int) -> Decimal
 def check_excursion(all_in_rate: Decimal, lender_type: str, cfg: ScenarioConfig) -> str
-def price(spread_pct: Decimal, snapshot: RateSnapshot, cfg: ScenarioConfig) -> Pricing
+def price(spread_pct: Decimal, snapshot: RateSnapshot, cfg: ScenarioConfig,
+          lender_type: str) -> Pricing
 ```
 
 ### P2.4 Schedule module
