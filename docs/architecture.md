@@ -859,24 +859,24 @@ rbf_remittance_rate_pct = "5.00"
 bridge_tenor_months = 3
 
 [bands.last_round]
-min_usd = "10000000"
-max_usd = "400000000"
+min_usd = "1000000000"
+max_usd = "40000000000"
 unit = "usd_minor_units"
 scale = 0
 band = "generator_last_round_10_400_million_usd"
 citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
 
 [bands.arr]
-min_usd = "2000000"
-max_usd = "150000000"
+min_usd = "200000000"
+max_usd = "15000000000"
 unit = "usd_minor_units"
 scale = 0
 band = "generator_arr_2_150_million_usd"
 citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
 
 [bands.net_burn]
-min_usd = "500000"
-max_usd = "8000000"
+min_usd = "50000000"
+max_usd = "800000000"
 unit = "usd_minor_units"
 scale = 0
 band = "generator_net_burn_0_5_8_million_usd_monthly"
@@ -907,9 +907,9 @@ The draw stream is never touched, so the book stays aligned.
 | SYN-0001 | pre_revenue | pre_revenue = yes, arr = 0 |
 | SYN-0002 | zero_warrant_bank | lender_type = bank, warrant_coverage_pct = "0.00", spread_pct = "3.0000" (edge value legal in both lender bands) |
 | SYN-0003 | infeasible_at_zero_draw | cash_coverage_months = "15.0" (zero-draw runway 15.0 is strictly below the 18.0 floor, so infeasibility is structural) |
-| SYN-0004 | runway_bound | last_round = 400,000,000.00 USD, net_burn = 500,000.00 USD, cash_coverage_months = "20.0", arr = 150,000,000.00 USD, gross_margin_pct = "80.00", monthly_growth_pct = "0.5000" (runway bound is far below the 200,000,000.00 band cap while CFADS gives DSCR huge slack) |
-| SYN-0005 | dscr_bound | last_round = 10,000,000.00 USD, arr = 2,000,000.00 USD, gross_margin_pct = "50.00", monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" (small CFADS puts the DSCR bound near 2,000,000.00 USD at any allowed all-in rate, below the 5,000,000.00 cap and far below the runway bound) |
-| SYN-0006 | rbf_shortfall | structure = rbf_capped, rbf_cap = "2.50", arr = 2,000,000.00 USD, monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" (projected remittance 5.00 percent of revenue over 24 periods is far below 2.50x any feasible advance) |
+| SYN-0004 | runway_bound | last_round = 40,000,000,000 cents, net_burn = 50,000,000 cents, cash_coverage_months = "20.0", arr = 15,000,000,000 cents, gross_margin_pct = "80.00", monthly_growth_pct = "0.5000" (runway bound is far below the 200,000,000.00 band cap while CFADS gives DSCR huge slack) |
+| SYN-0005 | dscr_bound | last_round = 1,000,000,000 cents, arr = 200,000,000 cents, gross_margin_pct = "50.00", monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" (small CFADS puts the DSCR bound near 2,000,000.00 USD at any allowed all-in rate, below the 5,000,000.00 cap and far below the runway bound) |
+| SYN-0006 | rbf_shortfall | structure = rbf_capped, rbf_cap = "2.50", arr = 200,000,000 cents, monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" (projected remittance 5.00 percent of revenue over 24 periods is far below 2.50x any feasible advance) |
 
 Strata manifest (emitted in the payload and asserted by the build):
 - pre_revenue: arr_cents == 0.

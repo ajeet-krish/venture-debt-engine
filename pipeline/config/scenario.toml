@@ -26,6 +26,62 @@ revenue_downlift_pct = "30.00"
 valuation_factor = "0.15"
 placement = "final_payment_date"
 
+[rates]
+series = "BTB3M"
+fallback_series = "BTB6M"
+label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'
+fallback_label_pattern = '(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill'
+
+[generator.weights.lender_type]
+bank = "0.45"
+non_bank = "0.55"
+
+[generator.weights.structure]
+bridge = "0.15"
+bullet = "0.25"
+io_then_straight_line = "0.35"
+rbf_capped = "0.25"
+
+[generator.weights.pre_revenue]
+no = "0.90"
+yes = "0.10"
+
+[generator]
+term_amortizing_periods = 36
+rbf_horizon_periods = 24
+rbf_remittance_rate_pct = "5.00"
+bridge_tenor_months = 3
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0001"
+stratum = "pre_revenue"
+overrides = { pre_revenue = "yes", arr = "0" }
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0002"
+stratum = "zero_warrant_bank"
+overrides = { lender_type = "bank", warrant_coverage_pct = "0.00", spread_pct = "3.0000" }
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0003"
+stratum = "infeasible_at_zero_draw"
+overrides = { cash_coverage_months = "15.0" }
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0004"
+stratum = "runway_bound"
+overrides = { last_round = "40000000000", net_burn = "50000000", cash_coverage_months = "20.0", arr = "15000000000", gross_margin_pct = "80.00", monthly_growth_pct = "0.5000" }
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0005"
+stratum = "dscr_bound"
+overrides = { last_round = "1000000000", arr = "200000000", gross_margin_pct = "50.00", monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" }
+
+[[generator.strata_slots]]
+borrower_id = "SYN-0006"
+stratum = "rbf_shortfall"
+overrides = { structure = "rbf_capped", rbf_cap = "2.50", arr = "200000000", monthly_growth_pct = "0.5000", cash_coverage_months = "150.0" }
+
 [bands.facility_sizing]
 min_pct_of_last_round = "20"
 max_pct_of_last_round = "50"
@@ -118,3 +174,35 @@ unit = "ratio"
 scale = 4
 band = "dscr_floor_1_15x_reference"
 citation = "SBA DSCR reference via 2026-11-10 research (accessed 2026-11-10)"
+
+[bands.last_round]
+min_usd = "1000000000"
+max_usd = "40000000000"
+unit = "usd_minor_units"
+scale = 0
+band = "generator_last_round_10_400_million_usd"
+citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
+
+[bands.arr]
+min_usd = "200000000"
+max_usd = "15000000000"
+unit = "usd_minor_units"
+scale = 0
+band = "generator_arr_2_150_million_usd"
+citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
+
+[bands.net_burn]
+min_usd = "50000000"
+max_usd = "800000000"
+unit = "usd_minor_units"
+scale = 0
+band = "generator_net_burn_0_5_8_million_usd_monthly"
+citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
+
+[bands.cash_coverage_months]
+min_months = "15.0"
+max_months = "150.0"
+unit = "months"
+scale = 1
+band = "generator_cash_coverage_15_150_months_of_burn"
+citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"

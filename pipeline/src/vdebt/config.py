@@ -9,8 +9,15 @@ ValueError when either is missing. Band.min and Band.max hold the primary
 sampling bounds of a band; every bound key not consumed by min, max, or the
 citation, band, unit, and scale meta keys is preserved in Band.extras, so no
 TOML value is ever lost.
+
+Phase 2 sections: [rates] pins the Valet series codes and label regexes (both
+patterns are compiled at load, so a bad pattern raises ValueError), and
+[generator] pins the weight tables (each category must sum to exactly 1), the
+derived term parameters, and the [[generator.strata_slots]] recipes (borrower
+ids unique and within SYN-0001 to SYN-0024).
 """
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -33,6 +40,15 @@ PRIMARY_BOUND_KEYS: dict[str, tuple[str, str]] = {
 # Bands whose extras keep every bound key, primary keys included, so each
 # sub-bound stays readable next to the overall Band.min and Band.max.
 EXTRAS_KEEP_ALL_BOUNDS: frozenset[str] = frozenset({"warrant_coverage"})
+
+# Weight categories under [generator.weights]; each table must sum to exactly 1.
+WEIGHT_CATEGORIES: tuple[str, ...] = ("lender_type", "structure", "pre_revenue")
+
+# Strata slot borrower id shape and inclusive range (the SYN-0001 to SYN-0024
+# book). ASCII digits only, so a fullwidth digit id fails the pattern.
+SLOT_ID_PATTERN: re.Pattern[str] = re.compile(r"SYN-([0-9]{4})")
+SLOT_ID_MIN: int = 1
+SLOT_ID_MAX: int = 24
 
 
 @dataclass(frozen=True)
@@ -64,6 +80,51 @@ class SolverParams:
 
 
 @dataclass(frozen=True)
+class RatesConfig:
+    """Pinned Valet series selection and expected series label patterns.
+
+    The patterns are stored as strings; load_scenario compiles both with
+    re.compile so an unpinnable pattern raises ValueError at load time.
+    """
+
+    series: str
+    fallback_series: str
+    label_pattern: str
+    fallback_label_pattern: str
+
+
+@dataclass(frozen=True)
+class SlotOverride:
+    """One strata slot recipe: borrower id, stratum label, override values.
+
+    overrides maps a generator value name to its pinned post-draw replacement,
+    kept as the raw quoted string so no scale or label is lost at the loader
+    boundary; the generator interprets each key in its own target unit.
+    """
+
+    borrower_id: str
+    stratum: str
+    overrides: dict[str, str]
+
+
+@dataclass(frozen=True)
+class GeneratorConfig:
+    """Seeded borrower generator parameters from [generator].
+
+    weights maps each WEIGHT_CATEGORIES name to its label-to-weight table in
+    exact Decimal, every table summing to exactly 1. strata_slots preserves
+    the pinned slot order from scenario.toml.
+    """
+
+    weights: dict[str, dict[str, Decimal]]
+    term_amortizing_periods: int
+    rbf_horizon_periods: int
+    rbf_remittance_rate_pct: Decimal
+    bridge_tenor_months: int
+    strata_slots: tuple[SlotOverride, ...]
+
+
+@dataclass(frozen=True)
 class ScenarioConfig:
     """Fully parsed, pinned scenario configuration."""
 
@@ -79,6 +140,8 @@ class ScenarioConfig:
     downside_burn_uplift_pct: Decimal
     downside_revenue_downlift_pct: Decimal
     solver: SolverParams
+    rates: RatesConfig
+    generator: GeneratorConfig
 
 
 def _reject_floats(node: object, where: str) -> None:
@@ -224,11 +287,164 @@ def _parse_band(name: str, raw: object) -> Band:
     )
 
 
+def _parse_rates(raw: object) -> RatesConfig:
+    """Parse [rates] and compile both label patterns at load time.
+
+    Both patterns are compiled with re.compile so an unpinnable pattern raises
+    ValueError here instead of failing at the first series label assertion.
+    """
+    where = "rates"
+    table = _require_table(raw, where)
+    series = _require_str(_require_key(table, "series", where), "rates.series")
+    fallback_series = _require_str(
+        _require_key(table, "fallback_series", where), "rates.fallback_series"
+    )
+    label_pattern = _require_str(
+        _require_key(table, "label_pattern", where), "rates.label_pattern"
+    )
+    fallback_label_pattern = _require_str(
+        _require_key(table, "fallback_label_pattern", where),
+        "rates.fallback_label_pattern",
+    )
+    for key, pattern in (
+        ("label_pattern", label_pattern),
+        ("fallback_label_pattern", fallback_label_pattern),
+    ):
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise ValueError(
+                f"rates.{key} is not a valid regex: {pattern!r} ({exc})"
+            ) from exc
+    return RatesConfig(
+        series=series,
+        fallback_series=fallback_series,
+        label_pattern=label_pattern,
+        fallback_label_pattern=fallback_label_pattern,
+    )
+
+
+def _parse_weights(raw: object) -> dict[str, dict[str, Decimal]]:
+    """Parse [generator.weights] with each category summing to exactly 1.
+
+    Unknown category tables raise ValueError so a mistyped category can never
+    silently disappear from the weight validation.
+    """
+    where = "generator.weights"
+    table = _require_table(raw, where)
+    for category in table:
+        if category not in WEIGHT_CATEGORIES:
+            raise ValueError(f"{where}: unknown weight category: {category!r}")
+    weights: dict[str, dict[str, Decimal]] = {}
+    for category in WEIGHT_CATEGORIES:
+        category_where = f"{where}.{category}"
+        category_table = _require_table(
+            _require_key(table, category, where), category_where
+        )
+        if not category_table:
+            raise ValueError(f"{category_where} must define at least one weight")
+        parsed: dict[str, Decimal] = {}
+        for label, value in category_table.items():
+            weight = _to_decimal(value, f"{category_where}.{label}")
+            if weight < 0:
+                raise ValueError(
+                    f"{category_where}.{label} must be non-negative, got {weight}"
+                )
+            parsed[label] = weight
+        total = sum(parsed.values(), Decimal(0))
+        if total != Decimal(1):
+            raise ValueError(
+                f"{category_where} weights sum to {total}, expected exactly 1"
+            )
+        weights[category] = parsed
+    return weights
+
+
+def _parse_strata_slots(raw: object) -> tuple[SlotOverride, ...]:
+    """Parse [[generator.strata_slots]] recipes in pinned file order.
+
+    Borrower ids must match SYN plus four ASCII digits within SYN-0001 to
+    SYN-0024 and must be unique; stratum must be a non-empty string; every
+    override value must be a quoted string (the float ban already rejected
+    native floats anywhere in the file).
+    """
+    where = "generator.strata_slots"
+    if not isinstance(raw, list):
+        raise TypeError(
+            f"{where} must be an array of tables, got {type(raw).__name__}"
+        )
+    slots: list[SlotOverride] = []
+    seen_ids: set[str] = set()
+    for index, entry in enumerate(raw):
+        entry_where = f"{where}[{index}]"
+        table = _require_table(entry, entry_where)
+        borrower_id = _require_str(
+            _require_key(table, "borrower_id", entry_where),
+            f"{entry_where}.borrower_id",
+        )
+        match = SLOT_ID_PATTERN.fullmatch(borrower_id)
+        number = int(match.group(1)) if match else None
+        if number is None or not SLOT_ID_MIN <= number <= SLOT_ID_MAX:
+            raise ValueError(
+                f"{entry_where}.borrower_id must be within "
+                f"SYN-0001 to SYN-0024, got {borrower_id!r}"
+            )
+        if borrower_id in seen_ids:
+            raise ValueError(f"{entry_where}.borrower_id duplicates {borrower_id}")
+        seen_ids.add(borrower_id)
+        stratum = _require_str(
+            _require_key(table, "stratum", entry_where), f"{entry_where}.stratum"
+        )
+        if not stratum:
+            raise ValueError(f"{entry_where}.stratum must be non-empty")
+        overrides_table = _require_table(
+            _require_key(table, "overrides", entry_where), f"{entry_where}.overrides"
+        )
+        overrides = {
+            key: _require_str(value, f"{entry_where}.overrides.{key}")
+            for key, value in overrides_table.items()
+        }
+        slots.append(
+            SlotOverride(borrower_id=borrower_id, stratum=stratum, overrides=overrides)
+        )
+    return tuple(slots)
+
+
+def _parse_generator(raw: object) -> GeneratorConfig:
+    """Parse [generator] plus its weight tables and strata slot recipes."""
+    where = "generator"
+    table = _require_table(raw, where)
+    weights = _parse_weights(_require_key(table, "weights", where))
+    strata_slots = _parse_strata_slots(table.get("strata_slots", []))
+    return GeneratorConfig(
+        weights=weights,
+        term_amortizing_periods=_require_int(
+            _require_key(table, "term_amortizing_periods", where),
+            "generator.term_amortizing_periods",
+        ),
+        rbf_horizon_periods=_require_int(
+            _require_key(table, "rbf_horizon_periods", where),
+            "generator.rbf_horizon_periods",
+        ),
+        rbf_remittance_rate_pct=_to_decimal(
+            _require_key(table, "rbf_remittance_rate_pct", where),
+            "generator.rbf_remittance_rate_pct",
+        ),
+        bridge_tenor_months=_require_int(
+            _require_key(table, "bridge_tenor_months", where),
+            "generator.bridge_tenor_months",
+        ),
+        strata_slots=strata_slots,
+    )
+
+
 def load_scenario(path: Path) -> ScenarioConfig:
     """Load scenario.toml at path into a frozen ScenarioConfig.
 
     Raises ValueError on any native TOML float, on any band entry missing its
-    citation or band key, and on any malformed or absent required key.
+    citation or band key, on a weight table that does not sum to exactly 1, on
+    a duplicate or out-of-range strata slot borrower id, on a label pattern
+    that does not compile, and on any malformed or absent required key.
     """
     if not isinstance(path, Path):
         raise TypeError(f"path must be a Path, got {type(path).__name__}")
@@ -248,9 +464,15 @@ def load_scenario(path: Path) -> ScenarioConfig:
     )
     downside = _require_table(_require_key(data, "downside", "scenario"), "downside")
     warrant = _require_table(_require_key(data, "warrant", "scenario"), "warrant")
+    rates_table = _require_table(_require_key(data, "rates", "scenario"), "rates")
+    generator_table = _require_table(
+        _require_key(data, "generator", "scenario"), "generator"
+    )
     bands_table = _require_table(_require_key(data, "bands", "scenario"), "bands")
 
     bands = {name: _parse_band(name, raw) for name, raw in bands_table.items()}
+    rates = _parse_rates(rates_table)
+    generator = _parse_generator(generator_table)
 
     solver = SolverParams(
         bracket_low=_to_decimal(
@@ -306,4 +528,6 @@ def load_scenario(path: Path) -> ScenarioConfig:
             "downside.revenue_downlift_pct",
         ),
         solver=solver,
+        rates=rates,
+        generator=generator,
     )

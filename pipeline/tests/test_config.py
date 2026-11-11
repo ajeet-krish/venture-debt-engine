@@ -1,17 +1,21 @@
 """Tests for vdebt.config: pinned scenario.toml values and loader rejections.
 
 Covers architecture section 6.3 and section 7 pins: seed and floor values are
-pinned, eleven bands each carry citation and band keys, pricing bands sample
+pinned, fifteen bands each carry citation and band keys, pricing bands sample
 the spread bounds and keep total rates in extras, warrant coverage keeps all
 four sub-bounds, native TOML floats are banned, missing band metadata raises.
+Also covers the phase 2 pins: [rates] series and label patterns, [generator]
+weights and derived term keys, the four generator bands, and the strata slot
+recipes with their id and weight-sum validation.
 """
 
+import re
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from vdebt.config import Band, load_scenario
+from vdebt.config import Band, GeneratorConfig, RatesConfig, SlotOverride, load_scenario
 
 SCENARIO_PATH = Path(__file__).resolve().parent.parent / "config" / "scenario.toml"
 
@@ -26,8 +30,44 @@ BAND_FULL = [
     'citation = "Example source (accessed 2026-11-10)"',
 ]
 
+# Phase 2 sections for minimal scenarios; individual tests override one block
+# to plant a single bad value while everything else stays valid.
+RATES_BLOCK = (
+    "[rates]\n"
+    'series = "BTB3M"\n'
+    'fallback_series = "BTB6M"\n'
+    "label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'\n"
+    "fallback_label_pattern = '(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill'\n"
+)
 
-def _minimal_scenario(band_lines: list[str]) -> str:
+GENERATOR_BLOCK = (
+    "[generator.weights.lender_type]\n"
+    'bank = "0.45"\n'
+    'non_bank = "0.55"\n'
+    "\n"
+    "[generator.weights.structure]\n"
+    'bridge = "0.15"\n'
+    'bullet = "0.25"\n'
+    'io_then_straight_line = "0.35"\n'
+    'rbf_capped = "0.25"\n'
+    "\n"
+    "[generator.weights.pre_revenue]\n"
+    'no = "0.90"\n'
+    'yes = "0.10"\n'
+    "\n"
+    "[generator]\n"
+    "term_amortizing_periods = 36\n"
+    "rbf_horizon_periods = 24\n"
+    'rbf_remittance_rate_pct = "5.00"\n'
+    "bridge_tenor_months = 3\n"
+)
+
+
+def _minimal_scenario(
+    band_lines: list[str],
+    rates_block: str = RATES_BLOCK,
+    generator_block: str = GENERATOR_BLOCK,
+) -> str:
     lines = [
         "[meta]",
         "seed = 20261110",
@@ -59,7 +99,7 @@ def _minimal_scenario(band_lines: list[str]) -> str:
         "[bands.example]",
     ]
     lines.extend(band_lines)
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines) + "\n" + rates_block + "\n" + generator_block
 
 
 def test_pinned_top_level_values():
@@ -73,9 +113,9 @@ def test_pinned_top_level_values():
     assert isinstance(cfg.dscr_floor, Decimal)
 
 
-def test_eleven_bands_each_carry_citation_and_band_keys():
+def test_fifteen_bands_each_carry_citation_and_band_keys():
     cfg = load_scenario(SCENARIO_PATH)
-    assert len(cfg.bands) == 11
+    assert len(cfg.bands) == 15
     for name, band in cfg.bands.items():
         assert isinstance(band, Band), name
         assert band.citation.strip(), name
@@ -150,4 +190,211 @@ def test_band_missing_band_key_is_rejected(tmp_path: Path):
     path = tmp_path / "scenario.toml"
     path.write_text(_minimal_scenario(band_lines), encoding="utf-8")
     with pytest.raises(ValueError, match="example.band"):
+        load_scenario(path)
+
+
+def test_rates_section_parses_to_pinned_values():
+    rates = load_scenario(SCENARIO_PATH).rates
+    assert isinstance(rates, RatesConfig)
+    assert rates.series == "BTB3M"
+    assert rates.fallback_series == "BTB6M"
+    assert rates.label_pattern == (
+        "(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill"
+    )
+    assert rates.fallback_label_pattern == (
+        "(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill"
+    )
+
+
+def test_generator_section_parses_to_pinned_values():
+    generator = load_scenario(SCENARIO_PATH).generator
+    assert isinstance(generator, GeneratorConfig)
+    assert generator.term_amortizing_periods == 36
+    assert generator.rbf_horizon_periods == 24
+    assert generator.rbf_remittance_rate_pct == Decimal("5.00")
+    assert generator.bridge_tenor_months == 3
+    assert generator.weights == {
+        "lender_type": {"bank": Decimal("0.45"), "non_bank": Decimal("0.55")},
+        "structure": {
+            "bridge": Decimal("0.15"),
+            "bullet": Decimal("0.25"),
+            "io_then_straight_line": Decimal("0.35"),
+            "rbf_capped": Decimal("0.25"),
+        },
+        "pre_revenue": {"no": Decimal("0.90"), "yes": Decimal("0.10")},
+    }
+
+
+def test_phase_two_bands_carry_citation_and_band_keys():
+    bands = load_scenario(SCENARIO_PATH).bands
+    pinned = {
+        "last_round": (Decimal(1000000000), Decimal(40000000000), "usd_minor_units", 0),
+        "arr": (Decimal(200000000), Decimal(15000000000), "usd_minor_units", 0),
+        "net_burn": (Decimal(50000000), Decimal(800000000), "usd_minor_units", 0),
+        "cash_coverage_months": (Decimal("15.0"), Decimal("150.0"), "months", 1),
+    }
+    for name, (minimum, maximum, unit, scale) in pinned.items():
+        band = bands[name]
+        assert isinstance(band, Band), name
+        assert band.min == minimum, name
+        assert band.max == maximum, name
+        assert band.unit == unit, name
+        assert band.scale == scale, name
+        assert band.citation.strip(), name
+        assert "accessed 2026-11-11" in band.citation, name
+        assert band.band.strip(), name
+
+
+def test_strata_slot_recipes_parse_to_pinned_values():
+    slots = load_scenario(SCENARIO_PATH).generator.strata_slots
+    assert all(isinstance(slot, SlotOverride) for slot in slots)
+    assert [slot.borrower_id for slot in slots] == [
+        "SYN-0001",
+        "SYN-0002",
+        "SYN-0003",
+        "SYN-0004",
+        "SYN-0005",
+        "SYN-0006",
+    ]
+    assert [slot.stratum for slot in slots] == [
+        "pre_revenue",
+        "zero_warrant_bank",
+        "infeasible_at_zero_draw",
+        "runway_bound",
+        "dscr_bound",
+        "rbf_shortfall",
+    ]
+    assert slots[0].overrides == {"pre_revenue": "yes", "arr": "0"}
+    assert slots[1].overrides == {
+        "lender_type": "bank",
+        "warrant_coverage_pct": "0.00",
+        "spread_pct": "3.0000",
+    }
+    assert slots[2].overrides == {"cash_coverage_months": "15.0"}
+    assert slots[3].overrides == {
+        "last_round": "40000000000",
+        "net_burn": "50000000",
+        "cash_coverage_months": "20.0",
+        "arr": "15000000000",
+        "gross_margin_pct": "80.00",
+        "monthly_growth_pct": "0.5000",
+    }
+    assert slots[4].overrides == {
+        "last_round": "1000000000",
+        "arr": "200000000",
+        "gross_margin_pct": "50.00",
+        "monthly_growth_pct": "0.5000",
+        "cash_coverage_months": "150.0",
+    }
+    assert slots[5].overrides == {
+        "structure": "rbf_capped",
+        "rbf_cap": "2.50",
+        "arr": "200000000",
+        "monthly_growth_pct": "0.5000",
+        "cash_coverage_months": "150.0",
+    }
+
+
+def test_strata_slot_ids_are_unique_and_in_range():
+    slots = load_scenario(SCENARIO_PATH).generator.strata_slots
+    ids = [slot.borrower_id for slot in slots]
+    assert len(ids) == len(set(ids))
+    for borrower_id in ids:
+        number = int(borrower_id.removeprefix("SYN-"))
+        assert 1 <= number <= 24, borrower_id
+
+
+def test_native_float_on_phase_two_decimal_key_is_rejected(tmp_path: Path):
+    float_generator = GENERATOR_BLOCK.replace(
+        'rbf_remittance_rate_pct = "5.00"', "rbf_remittance_rate_pct = 5.00"
+    )
+    assert float_generator != GENERATOR_BLOCK
+    path = tmp_path / "scenario.toml"
+    path.write_text(
+        _minimal_scenario(BAND_FULL, generator_block=float_generator),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="float"):
+        load_scenario(path)
+
+
+def test_each_weight_table_sums_to_one():
+    weights = load_scenario(SCENARIO_PATH).generator.weights
+    assert set(weights) == {"lender_type", "structure", "pre_revenue"}
+    for category, table in weights.items():
+        total = sum(table.values(), Decimal(0))
+        assert total == Decimal(1), category
+
+
+def test_weight_table_summing_to_099_raises(tmp_path: Path):
+    bad_generator = GENERATOR_BLOCK.replace('non_bank = "0.55"', 'non_bank = "0.54"')
+    assert bad_generator != GENERATOR_BLOCK
+    path = tmp_path / "scenario.toml"
+    path.write_text(
+        _minimal_scenario(BAND_FULL, generator_block=bad_generator),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="sum"):
+        load_scenario(path)
+
+
+def test_strata_slot_out_of_range_id_raises(tmp_path: Path):
+    bad_slot = (
+        "[[generator.strata_slots]]\n"
+        'borrower_id = "SYN-0025"\n'
+        'stratum = "pre_revenue"\n'
+        'overrides = { arr = "0" }\n'
+    )
+    path = tmp_path / "scenario.toml"
+    path.write_text(
+        _minimal_scenario(BAND_FULL, generator_block=GENERATOR_BLOCK + "\n" + bad_slot),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="SYN-0025"):
+        load_scenario(path)
+
+
+def test_strata_slot_duplicate_id_raises(tmp_path: Path):
+    first_slot = (
+        "[[generator.strata_slots]]\n"
+        'borrower_id = "SYN-0001"\n'
+        'stratum = "pre_revenue"\n'
+        'overrides = { arr = "0" }\n'
+    )
+    second_slot = (
+        "[[generator.strata_slots]]\n"
+        'borrower_id = "SYN-0001"\n'
+        'stratum = "runway_bound"\n'
+        'overrides = { arr = "1" }\n'
+    )
+    path = tmp_path / "scenario.toml"
+    path.write_text(
+        _minimal_scenario(
+            BAND_FULL,
+            generator_block=GENERATOR_BLOCK + "\n" + first_slot + second_slot,
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="SYN-0001"):
+        load_scenario(path)
+
+
+def test_label_patterns_compile():
+    rates = load_scenario(SCENARIO_PATH).rates
+    assert re.compile(rates.label_pattern) is not None
+    assert re.compile(rates.fallback_label_pattern) is not None
+
+
+def test_bad_label_pattern_raises(tmp_path: Path):
+    bad_rates = RATES_BLOCK.replace(
+        "label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'",
+        "label_pattern = '(['",
+    )
+    assert bad_rates != RATES_BLOCK
+    path = tmp_path / "scenario.toml"
+    path.write_text(
+        _minimal_scenario(BAND_FULL, rates_block=bad_rates),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="label_pattern"):
         load_scenario(path)
