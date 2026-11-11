@@ -1,0 +1,120 @@
+[meta]
+seed = 20261110
+generator_version = "v1"
+currency = "USD"
+rounding_mode = "ROUND_HALF_UP"
+
+[sizing]
+runway_floor_months = "18.0"
+dscr_floor = "1.1500"
+bisection_max_iterations = 60
+
+[solver.irr]
+bracket_low = "-0.99"
+bracket_high = "10.00"
+tolerance_decimal = "0.000001"
+max_iterations = 200
+
+[scenario]
+rate_shock_bp = 200
+
+[downside]
+burn_uplift_pct = "50.00"
+revenue_downlift_pct = "30.00"
+
+[warrant]
+valuation_factor = "0.15"
+placement = "final_payment_date"
+
+[bands.facility_sizing]
+min_pct_of_last_round = "20"
+max_pct_of_last_round = "50"
+unit = "percent"
+scale = 2
+band = "facility_sizing_band_20_50_pct_of_last_round"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.interest_only]
+min_months = 12
+max_months = 18
+unit = "months"
+scale = 1
+band = "interest_only_12_18_months"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.term]
+min_months = 36
+max_months = 60
+unit = "months"
+scale = 1
+band = "loan_term_3_5_years"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.warrant_coverage]
+bank_min_pct = "0"
+bank_max_pct = "5"
+nonbank_min_pct = "10"
+nonbank_max_pct = "20"
+unit = "percent"
+scale = 2
+band = "warrant_coverage_0_20_pct_banks_0_5_nonbanks_10_20"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.pricing_bank]
+spread_min_pct = "1"
+spread_max_pct = "3"
+total_rate_min_pct = "5"
+total_rate_max_pct = "8"
+unit = "percent_annual"
+scale = 4
+band = "bank_pricing_prime_plus_1_3_rebased_short_rate_plus_spread"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.pricing_nonbank]
+spread_min_pct = "3"
+spread_max_pct = "4"
+total_rate_min_pct = "10"
+total_rate_max_pct = "14"
+unit = "percent_annual"
+scale = 4
+band = "nonbank_pricing_prime_plus_3_4_rebased_short_rate_plus_spread"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.closing_fee]
+min_pct = "0.5"
+max_pct = "2"
+unit = "percent"
+scale = 2
+band = "closing_fee_0_5_2_pct"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.rbf_cap]
+min_multiple = "1.3"
+max_multiple = "2.5"
+unit = "multiple"
+scale = 2
+band = "rbf_cap_multiple_1_3_2_5x"
+citation = "Mercury venture debt term sheet guide (accessed 2026-11-10)"
+
+[bands.gross_margin]
+min_pct = "50"
+max_pct = "80"
+unit = "percent"
+scale = 2
+band = "cfads_gross_margin_band_50_80_pct"
+citation = "Venture Debt Engine stated proxy assumption, not a market quote (accessed 2026-11-10)"
+
+[bands.revenue_growth_monthly]
+min_pct = "0.5"
+max_pct = "3.0"
+unit = "percent"
+scale = 4
+band = "monthly_revenue_growth_band_0_5_3_0_pct"
+citation = "Venture Debt Engine stated growth path assumption, not a market quote (accessed 2026-11-10)"
+
+[bands.dscr_floor_reference]
+value = "1.1500"
+unit = "ratio"
+scale = 4
+band = "dscr_floor_1_15x_reference"
+citation = "SBA DSCR reference via 2026-11-10 research (accessed 2026-11-10)"
