@@ -1,0 +1,312 @@
+{
+  "fixture_id": "F3",
+  "title": "io then straight line amortization schedule",
+  "authored_by": "06-tester",
+  "authored_phase": 1,
+  "rate_source": "fixture_pinned",
+  "_comment": "Hand-computed ground truth for the interest only then straight line amortizing structure. Inputs are pinned test vectors, exempt from band validation. Expected values are already quantized at their storage or metric boundary with ROUND_HALF_UP, exactly as the engine will publish them. Interest accrues on the opening balance of each period and principal is repaid on the payment date.",
+  "arithmetic": [
+    "step 1: rate fraction = all_in_rate 8.0000 percent_annual / 100 = 0.08, exact division, no rounding needed.",
+    "step 2: payment date 1 = add_months(close 2026-07-31, 1) = 2026-08-31, day of month 31 preserved because August has 31 days, 2026-08-31 is Monday, a business day, no roll.",
+    "step 3: payment date 2 = add_months(close 2026-07-31, 2) = 2026-09-30, day 31 clamped to September last day 30, 2026-09-30 is Wednesday, a business day, no roll.",
+    "step 4: payment date 3 = add_months(close 2026-07-31, 3) = 2026-10-31, day of month 31 preserved because October has 31 days, 2026-10-31 is Saturday, roll forward to Monday 2026-11-02.",
+    "step 5: payment date 4 = add_months(close 2026-07-31, 4) = 2026-11-30, day 31 clamped to November last day 30, 2026-11-30 is Monday, a business day, no roll.",
+    "step 6: payment date 5 = add_months(close 2026-07-31, 5) = 2026-12-31, day of month 31 preserved because December has 31 days, 2026-12-31 is Thursday, a business day, no roll.",
+    "step 7: payment date 6 = add_months(close 2026-07-31, 6) = 2027-01-31, day of month 31 preserved because January 2027 has 31 days, 2027-01-31 is Sunday, roll forward to Monday 2027-02-01. The 6 dates 2026-08-31, 2026-09-30, 2026-11-02, 2026-11-30, 2026-12-31, 2027-02-01 are strictly increasing.",
+    "step 8: schedule rows 1 to 6 carry payment dates 1 to 6 in order; io 3 of term 6 makes periods 1 to 3 interest only with principal 0 cents, and periods 4 to 6 amortize.",
+    "step 9: straight line principal = allocate_cents(30,000,000, 3) = [10,000,000, 10,000,000, 10,000,000]: each part is floor(30,000,000 / 3) = 10,000,000 cents with remainder 0, assigned to periods 4, 5, and 6.",
+    "step 10: period 1 spans (close 2026-07-31, payment 1 2026-08-31], days_between = 31, ACT/365 year fraction = 31/365, interest = 0.08 x 30,000,000 cents x 31/365 = 203,835.6164383561643835616438 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 203,836 cents.",
+    "step 11: period 2 spans (payment 1 2026-08-31, payment 2 2026-09-30], days_between = 30, ACT/365 year fraction = 30/365, interest = 0.08 x 30,000,000 cents x 30/365 = 197,260.2739726027397260273973 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 197,260 cents.",
+    "step 12: period 3 spans (payment 2 2026-09-30, payment 3 2026-11-02], days_between = 33, ACT/365 year fraction = 33/365, interest = 0.08 x 30,000,000 cents x 33/365 = 216,986.3013698630136986301370 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 216,986 cents.",
+    "step 13: period 4 spans (payment 3 2026-11-02, payment 4 2026-11-30], days_between = 28, ACT/365 year fraction = 28/365, interest = 0.08 x 30,000,000 cents x 28/365 = 184,109.5890410958904109589041 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 184,110 cents.",
+    "step 14: period 5 spans (payment 4 2026-11-30, payment 5 2026-12-31], days_between = 31, ACT/365 year fraction = 31/365, interest = 0.08 x 20,000,000 cents x 31/365 = 135,890.4109589041095890410959 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 135,890 cents.",
+    "step 15: period 6 spans (payment 5 2026-12-31, payment 6 2027-02-01], days_between = 32, ACT/365 year fraction = 32/365, interest = 0.08 x 10,000,000 cents x 32/365 = 70,136.98630136986301369863014 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 70,137 cents.",
+    "step 16: opening balance period 1 = facility 30,000,000 cents; closing balance = opening minus principal gives 30,000,000 then 30,000,000 then 30,000,000 then 20,000,000 then 10,000,000 then 0 cents for periods 1 to 6.",
+    "step 17: opening balance period t equals the prior closing balance, so openings are 30,000,000 then 30,000,000 then 30,000,000 then 30,000,000 then 20,000,000 then 10,000,000 cents.",
+    "step 18: total_interest = 203,836 + 197,260 + 216,986 + 184,110 + 135,890 + 70,137 = 1,008,219 cents, exact integer sum of the quantized rows, no further rounding.",
+    "step 19: total_principal = 0 + 0 + 0 + 10,000,000 + 10,000,000 + 10,000,000 = 30,000,000 cents, exact integer sum; row 6 closing balance 0 equals the facility repaid, so the schedule ties out.",
+    "step 20: closing_fee = 1.00 percent x 30,000,000 cents = 300,000 cents = 3,000.00 USD, exact product, no rounding needed.",
+    "step 21: moic = (interest 1,008,219 + principal 30,000,000 + warrant value 0) / 30,000,000 = 1.0336073, quantize to scale 2 with ROUND_HALF_UP once = 1.03, closing fee excluded from the numerator.",
+    "step 22: warrant_coverage_pct 0.00 means no warrant is granted, so warrant value publishes as 0 usd_minor_units with status not_granted, never a missing field."
+  ],
+  "inputs": {
+    "close": {
+      "value": "2026-07-31",
+      "unit": "date"
+    },
+    "facility": {
+      "value": 30000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "term": {
+      "value": 6,
+      "unit": "count",
+      "scale": 0
+    },
+    "io": {
+      "value": 3,
+      "unit": "count",
+      "scale": 0
+    },
+    "all_in_rate": {
+      "value": "8.0000",
+      "unit": "percent_annual",
+      "scale": 4,
+      "source": "fixture pinned rate"
+    },
+    "closing_fee_pct": {
+      "value": "1.00",
+      "unit": "percent",
+      "scale": 2
+    },
+    "warrant_coverage_pct": {
+      "value": "0.00",
+      "unit": "percent",
+      "scale": 2
+    }
+  },
+  "expected": {
+    "payment_dates": [
+      {
+        "value": "2026-08-31",
+        "unit": "date"
+      },
+      {
+        "value": "2026-09-30",
+        "unit": "date"
+      },
+      {
+        "value": "2026-11-02",
+        "unit": "date"
+      },
+      {
+        "value": "2026-11-30",
+        "unit": "date"
+      },
+      {
+        "value": "2026-12-31",
+        "unit": "date"
+      },
+      {
+        "value": "2027-02-01",
+        "unit": "date"
+      }
+    ],
+    "schedule": [
+      {
+        "period": {
+          "value": 1,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-08-31",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 203836,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 2,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-09-30",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 197260,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 3,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-11-02",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 216986,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 4,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-11-30",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 30000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 184110,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 10000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 20000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 5,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-12-31",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 20000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 135890,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 10000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 10000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 6,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2027-02-01",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 10000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 70137,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 10000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      }
+    ],
+    "total_interest": {
+      "value": 1008219,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "total_principal": {
+      "value": 30000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "closing_fee": {
+      "value": 300000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "moic": {
+      "value": "1.03",
+      "unit": "multiple",
+      "scale": 2
+    },
+    "warrant": {
+      "value": 0,
+      "unit": "usd_minor_units",
+      "scale": 0,
+      "status": "not_granted"
+    }
+  },
+  "tolerances": {}
+}

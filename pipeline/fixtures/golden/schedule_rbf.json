@@ -1,0 +1,420 @@
+{
+  "fixture_id": "F4",
+  "title": "rbf remittance schedule with cap",
+  "authored_by": "06-tester",
+  "authored_phase": 1,
+  "rate_source": "fixture_pinned",
+  "_comment": "Hand-computed ground truth for the revenue based financing structure with a repayment cap. Remittances are computed in period arrears as remittance_rate_pct times period revenue, capped at the residual remaining to the cap; when cumulative remittance reaches the cap the final remittance is the exact residual and remittances stop. F4 carries no interest term, no fee term, and no warrant grant beyond the published zero. Inputs are pinned test vectors, exempt from band validation. Expected values are already quantized at their storage or metric boundary with ROUND_HALF_UP, exactly as the engine will publish them.",
+  "arithmetic": [
+    "step 1: remittance fraction = remittance_rate_pct 5.00 percent / 100 = 0.05, exact division, no rounding needed.",
+    "step 2: cap = cap_multiple 1.50 x advance 60,000,000 cents = 90,000,000 cents = 900,000.00 USD, exact product, quantize to scale 0 with ROUND_HALF_UP once = 90,000,000 cents, no rounding needed.",
+    "step 3: close 2026-05-01 is Friday, a business day; payment date k = roll_forward(add_months(close, k)) for k = 1 to N; day of month 1 is preserved because every target month has at least day 1, so no clamping occurs in F4; business days are Monday to Friday with no holiday table.",
+    "step 4: payment date 1 = add_months(close 2026-05-01, 1) = 2026-06-01, Monday, a business day, no roll. Period 1 spans (2026-05-01, 2026-06-01], days_between = 31, ACT/365 year fraction = 31/365; F4 accrues no interest, so the day count documents the period boundary only and changes no money value.",
+    "step 5: payment date 2 = add_months(close 2026-05-01, 2) = 2026-07-01, Wednesday, a business day, no roll. Period 2 spans (2026-06-01, 2026-07-01], days_between = 30, ACT/365 year fraction = 30/365, no interest accrues.",
+    "step 6: payment date 3 = add_months(close 2026-05-01, 3) = 2026-08-01, Saturday, roll forward to Monday 2026-08-03. Period 3 spans (2026-07-01, 2026-08-03], days_between = 33, ACT/365 year fraction = 33/365, no interest accrues.",
+    "step 7: payment date 4 = add_months(close 2026-05-01, 4) = 2026-09-01, Tuesday, a business day, no roll. Period 4 spans (2026-08-03, 2026-09-01], days_between = 29, ACT/365 year fraction = 29/365, no interest accrues.",
+    "step 8: payment date 5 = add_months(close 2026-05-01, 5) = 2026-10-01, Thursday, a business day, no roll. Period 5 spans (2026-09-01, 2026-10-01], days_between = 30, ACT/365 year fraction = 30/365, no interest accrues. The five dates 2026-06-01, 2026-07-01, 2026-08-03, 2026-09-01, 2026-10-01 are strictly increasing.",
+    "step 9: case cap_hit period 1 revenue = 4,000,000.00 USD to_cents = 400,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 400,000,000, exact. Remittance nominal = 0.05 x 400,000,000 = 20,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 20,000,000, exact. Residual to cap before = 90,000,000 cents, nominal 20,000,000 <= 90,000,000, full nominal remitted, cumulative = 20,000,000 cents.",
+    "step 10: case cap_hit period 2 revenue = 4,000,000.00 USD to_cents = 400,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 400,000,000, exact. Remittance nominal = 0.05 x 400,000,000 = 20,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 20,000,000, exact. Residual to cap before = 90,000,000 minus 20,000,000 = 70,000,000 cents, nominal 20,000,000 <= 70,000,000, cumulative = 20,000,000 plus 20,000,000 = 40,000,000 cents.",
+    "step 11: case cap_hit period 3 revenue = 4,000,000.00 USD to_cents = 400,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 400,000,000, exact. Remittance nominal = 0.05 x 400,000,000 = 20,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 20,000,000, exact. Residual to cap before = 90,000,000 minus 40,000,000 = 50,000,000 cents, nominal 20,000,000 <= 50,000,000, cumulative = 40,000,000 plus 20,000,000 = 60,000,000 cents.",
+    "step 12: case cap_hit period 4 revenue = 4,000,000.00 USD to_cents = 400,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 400,000,000, exact. Remittance nominal = 0.05 x 400,000,000 = 20,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 20,000,000, exact. Residual to cap before = 90,000,000 minus 60,000,000 = 30,000,000 cents, nominal 20,000,000 <= 30,000,000, cumulative = 60,000,000 plus 20,000,000 = 80,000,000 cents = 800,000.00 USD, residual remaining to the cap after period 4 = 90,000,000 minus 80,000,000 = 10,000,000 cents = 100,000.00 USD.",
+    "step 13: case cap_hit period 5 revenue = 2,000,000.00 USD to_cents = 200,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 200,000,000, exact. Remittance nominal = 0.05 x 200,000,000 = 10,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 10,000,000, exact. Residual to cap = 90,000,000 minus 80,000,000 = 10,000,000 cents, nominal equals the residual exactly, so remittance = 10,000,000 cents and the cap trims nothing; cumulative = 80,000,000 plus 10,000,000 = 90,000,000 cents = cap exactly; residual after = 90,000,000 minus 90,000,000 = 0 cents; remittances stop at the cap.",
+    "step 14: case cap_hit final_cumulative = 20,000,000 x 4 plus 10,000,000 = 90,000,000 cents over horizon 5, exact integer sum of the quantized rows, no further rounding. Residual = 90,000,000 minus 90,000,000 = 0 cents, quantize to scale 0 with ROUND_HALF_UP once = 0, exact. Status feasible because cumulative remittance reached the cap inside the horizon.",
+    "step 15: case shortfall uses payment dates 1 to 3 of the same rule: 2026-06-01, 2026-07-01, 2026-08-03, strictly increasing, day counts 31, 30, 33 from steps 4 to 6.",
+    "step 16: case shortfall period 1 revenue = 1,000,000.00 USD to_cents = 100,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 100,000,000, exact. Remittance nominal = 0.05 x 100,000,000 = 5,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 5,000,000, exact. Residual to cap before = 90,000,000 cents, nominal 5,000,000 <= 90,000,000, cumulative = 5,000,000 cents.",
+    "step 17: case shortfall period 2 revenue = 1,000,000.00 USD to_cents = 100,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 100,000,000, exact. Remittance nominal = 0.05 x 100,000,000 = 5,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 5,000,000, exact. Residual to cap before = 90,000,000 minus 5,000,000 = 85,000,000 cents, nominal 5,000,000 <= 85,000,000, cumulative = 5,000,000 plus 5,000,000 = 10,000,000 cents.",
+    "step 18: case shortfall period 3 revenue = 1,000,000.00 USD to_cents = 100,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 100,000,000, exact. Remittance nominal = 0.05 x 100,000,000 = 5,000,000 cents, quantize to scale 0 with ROUND_HALF_UP once = 5,000,000, exact. Residual to cap before = 90,000,000 minus 10,000,000 = 80,000,000 cents, nominal 5,000,000 <= 80,000,000, cumulative = 10,000,000 plus 5,000,000 = 15,000,000 cents = 150,000.00 USD.",
+    "step 19: case shortfall final_cumulative = 5,000,000 x 3 = 15,000,000 cents over horizon 3, exact integer sum of the quantized rows, no further rounding. Residual = 90,000,000 minus 15,000,000 = 75,000,000 cents = 750,000.00 USD, quantize to scale 0 with ROUND_HALF_UP once = 75,000,000, exact. Status shortfall because the cap was not reached inside the horizon; the residual companion 75,000,000 cents travels inside the status envelope and the standalone residual leaf repeats the same 75,000,000 cents.",
+    "step 20: warrant_coverage_pct 0.00 means no warrant is granted, so warrant value publishes as 0 usd_minor_units with status not_granted, never a missing field. F4 carries no interest term and no fee term, so no interest or fee value appears in any expected field."
+  ],
+  "inputs": {
+    "close": {
+      "value": "2026-05-01",
+      "unit": "date"
+    },
+    "advance": {
+      "value": 60000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "remittance_rate_pct": {
+      "value": "5.00",
+      "unit": "percent",
+      "scale": 2
+    },
+    "cap_multiple": {
+      "value": "1.50",
+      "unit": "multiple",
+      "scale": 2
+    },
+    "warrant_coverage_pct": {
+      "value": "0.00",
+      "unit": "percent",
+      "scale": 2
+    }
+  },
+  "cases": [
+    {
+      "case_id": "cap_hit",
+      "inputs": {
+        "horizon": {
+          "value": 5,
+          "unit": "count",
+          "scale": 0
+        },
+        "revenue": [
+          {
+            "value": 400000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 400000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 400000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 400000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 200000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          }
+        ]
+      },
+      "expected": {
+        "payment_dates": [
+          {
+            "value": "2026-06-01",
+            "unit": "date"
+          },
+          {
+            "value": "2026-07-01",
+            "unit": "date"
+          },
+          {
+            "value": "2026-08-03",
+            "unit": "date"
+          },
+          {
+            "value": "2026-09-01",
+            "unit": "date"
+          },
+          {
+            "value": "2026-10-01",
+            "unit": "date"
+          }
+        ],
+        "periods": [
+          {
+            "period": {
+              "value": 1,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-06-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 400000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 20000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 20000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 2,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-07-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 400000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 20000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 40000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 3,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-08-03",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 400000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 20000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 60000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 4,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-09-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 400000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 20000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 80000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 5,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-10-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 200000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 10000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 90000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          }
+        ],
+        "final_cumulative": {
+          "value": 90000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "residual": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "status": {
+          "value": "feasible",
+          "unit": "status"
+        },
+        "warrant": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0,
+          "status": "not_granted"
+        }
+      }
+    },
+    {
+      "case_id": "shortfall",
+      "inputs": {
+        "horizon": {
+          "value": 3,
+          "unit": "count",
+          "scale": 0
+        },
+        "revenue": [
+          {
+            "value": 100000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 100000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          },
+          {
+            "value": 100000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          }
+        ]
+      },
+      "expected": {
+        "payment_dates": [
+          {
+            "value": "2026-06-01",
+            "unit": "date"
+          },
+          {
+            "value": "2026-07-01",
+            "unit": "date"
+          },
+          {
+            "value": "2026-08-03",
+            "unit": "date"
+          }
+        ],
+        "periods": [
+          {
+            "period": {
+              "value": 1,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-06-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 100000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 5000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 5000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 2,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-07-01",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 100000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 5000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 10000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          },
+          {
+            "period": {
+              "value": 3,
+              "unit": "count",
+              "scale": 0
+            },
+            "payment_date": {
+              "value": "2026-08-03",
+              "unit": "date"
+            },
+            "revenue": {
+              "value": 100000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "remittance": {
+              "value": 5000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            },
+            "cumulative": {
+              "value": 15000000,
+              "unit": "usd_minor_units",
+              "scale": 0
+            }
+          }
+        ],
+        "final_cumulative": {
+          "value": 15000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "residual": {
+          "value": 75000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "status": {
+          "value": "shortfall",
+          "unit": "status",
+          "residual": {
+            "value": 75000000,
+            "unit": "usd_minor_units",
+            "scale": 0
+          }
+        },
+        "warrant": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0,
+          "status": "not_granted"
+        }
+      }
+    }
+  ],
+  "tolerances": {}
+}

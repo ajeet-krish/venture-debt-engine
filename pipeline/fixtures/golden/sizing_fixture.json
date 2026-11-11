@@ -1,0 +1,207 @@
+{
+  "fixture_id": "F1",
+  "title": "sizing bisection convergence, runway bound and infeasible at zero draw",
+  "authored_by": "06-tester",
+  "authored_phase": 1,
+  "rate_source": "fixture_pinned",
+  "_comment": "Hand-computed ground truth for the sizing bisection under the runway floor and DSCR floor. Cases: case_id runway_bound is F1a, case_id infeasible is F1c, case_id dscr_bound is F1b with the same shared inputs but revenue_monthly 600,000.00 USD. Inputs are pinned test vectors, exempt from band validation. Expected values are already quantized at their metric boundary with ROUND_HALF_UP, exactly as the engine will publish them. Feasibility compares exact values before any publication quantize.",
+  "arithmetic": [
+    "step 1: structure io_then_straight_line with term 30 periods and io 12 periods gives 18 amortizing periods, so interest only covers periods 1 to 12 and straight line principal covers periods 13 to 30.",
+    "step 2: close 2026-04-30 is Thursday, a business day; payment date k = roll_forward(add_months(close, k)) with Monday to Friday business days, no holiday table, roll forward only.",
+    "step 3: payment date 12 = add_months(2026-04-30, 12) = 2027-04-30, day 30 preserved, Friday, a business day, no roll; payment date 13 = add_months(2026-04-30, 13) = 2027-05-30, Sunday, roll forward to Monday 2027-05-31, so the first amortizing payment is period 13 on 2027-05-31 and its accrual span is (2027-04-30, 2027-05-31], days_between = 31, ACT/365 year fraction = 31/365.",
+    "step 4: CFADS per period = revenue_monthly 110,000,000 cents x gross_margin_pct 50.00 percent / 100 = 55,000,000 cents = 550,000.00 USD, quantize to scale 0 with ROUND_HALF_UP once = 55,000,000, exact; monthly_growth_pct 0.0000 percent keeps CFADS constant across all 30 periods.",
+    "step 5: band cap = band_cap_pct 50.00 percent / 100 x last_round 2,000,000,000 cents = 1,000,000,000 cents = 10,000,000.00 USD, quantize to scale 0 with ROUND_HALF_UP once = 1,000,000,000, exact; the bisection domain is lo = 0 and hi = 1,000,000,000 cents, and at hi the runway is (2,500,000,000 minus 1,000,000,000) / 100,000,000 = 15.0 months, below the floor 18.0, so hi is infeasible and the bracket is valid.",
+    "step 6: case runway_bound runway inequality: feasibility needs (cash 2,500,000,000 minus F) / net_burn_monthly 100,000,000 at or above runway_floor_months 18.0, so F is at most 2,500,000,000 minus 18 x 100,000,000 = 2,500,000,000 minus 1,800,000,000 = 700,000,000 cents = 7,000,000.00 USD, quantize to scale 0 with ROUND_HALF_UP once = 700,000,000, exact.",
+    "step 7: bisection on integer cents: at F = 700,000,000 the runway is 1,800,000,000 / 100,000,000 = 18.0 months, equal to the floor, feasible; at F = 700,000,001 the runway is 1,799,999,999 / 100,000,000 = 17.99999999 months, strictly below 18.0, infeasible; feasibility compares exact values before any publication quantize, so the largest feasible cent is 700,000,000 and 700,000,000 is at or below the band cap 1,000,000,000, so runway binds before band_cap.",
+    "step 8: post_draw_runway_months at the answer = (2,500,000,000 minus 700,000,000) / 100,000,000 = 18.0, quantize to scale 1 months with ROUND_HALF_UP once = 18.0, exact.",
+    "step 9: principal per amortizing period = allocate_cents(700,000,000, 18): base = floor(700,000,000 / 18) = 38,888,888 cents, remainder = 700,000,000 minus 18 x 38,888,888 = 16, so periods 13 to 28 pay 38,888,889 cents and periods 29 and 30 pay 38,888,888 cents; the 18 parts sum to 700,000,000 cents exactly, quantize to scale 0 with ROUND_HALF_UP once = exact, no rounding needed.",
+    "step 10: period 13 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x opening balance 700,000,000 cents x 31/365 = 4,756,164.383561643835616438356 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 4,756,164 cents.",
+    "step 11: period 13 debt service = interest 4,756,164 + principal 38,888,889 = 43,645,053 cents; DSCR = CFADS 55,000,000 / 43,645,053 = 1.260165728289985121566927642 at MONEY_CONTEXT prec 28, quantize to scale 4 ratio with ROUND_HALF_UP once = 1.2602; 1.2602 >= dscr_floor 1.1500, so the DSCR constraint holds at this facility.",
+    "step 12: min DSCR period identification: debt service across amortizing periods 13 to 30 declines every period because the opening balance falls by 38,888,889 cents each period while day counts stay within 28 to 33 days, with series 43,645,053, then 43,235,921, then 42,980,213, then 42,852,359, then 42,588,128, then 42,434,703, then 41,855,099, then 41,701,674, then 41,616,438, then 41,113,547, then 40,934,551, then 40,798,174, then 40,371,994, then 40,210,046, then 39,945,814, then 39,656,012, then 39,451,445, then 39,127,549 cents, so period 13 carries the largest debt service; the largest interest only debt service across periods 1 to 12 is 5,063,014 cents (period 9), far below period 13 debt service 43,645,053 cents, so period 13 is the minimum DSCR period and min_dscr publishes as 1.2602.",
+    "step 13: DSCR basis check: using the unquantized period 13 interest 4,756,164.383561643835616438356 cents in the denominator gives 55,000,000 / 43,645,053.38356164383561643836 = 1.260165717215391306766792954, quantize to scale 4 with ROUND_HALF_UP once = 1.2602, identical to the quantized schedule row basis, so min_dscr = 1.2602 either way.",
+    "step 14: binding constraint at F = 700,000,001 cents: the runway inequality fails (17.99999999 below 18.0) while min DSCR stays 1.2602 >= 1.1500, so runway is the first constraint to fail as F grows and binding_constraint = runway; facility_usd = 700,000,000 integer cents, quantize to scale 0 with ROUND_HALF_UP once = 700,000,000, exact.",
+    "step 15: case runway_bound status = feasible because both constraints hold at F = 700,000,000: runway 18.0 at or above 18.0 and min DSCR 1.2602 at or above 1.1500.",
+    "step 16: case infeasible zero-draw evaluation: at F = 0 the runway is cash 150,000,000 / net_burn_monthly 100,000,000 = 1.5 months, quantize to scale 1 months with ROUND_HALF_UP once = 1.5; 1.5 is strictly below runway_floor_months 18.0, so the runway constraint fails even at zero draw.",
+    "step 17: case infeasible over the whole bisection domain: lo = 0 already fails the runway floor (1.5 below 18.0) and hi = 1,000,000,000 cents gives (150,000,000 minus 1,000,000,000) / 100,000,000 = negative runway, so no feasible cent exists; status = infeasible with binding_constraint = runway, no facility value key is published, and a zero-sized facility is never presented as a solution.",
+    "step 18: case dscr_bound CFADS per period = revenue_monthly 60,000,000 cents x gross_margin_pct 50.00 percent / 100 = 30,000,000 cents = 300,000.00 USD, quantize to scale 0 with ROUND_HALF_UP once = 30,000,000, exact; monthly_growth_pct 0.0000 percent keeps CFADS constant across all 30 periods.",
+    "step 19: payment date 13 = roll_forward(add_months(close 2026-04-30, 13)) = 2027-05-30, Sunday, rolled forward to Monday 2027-05-31, so the first amortizing payment is period 13 on 2027-05-31 and its accrual span is (2027-04-30, 2027-05-31], days_between = 31, ACT/365 year fraction = 31/365, identical to case runway_bound.",
+    "step 20: period 13 debt service per cent of facility k = principal 1/18 + interest; interest accrues on the opening balance of each period and principal is repaid on the payment date, and interest only periods 1 to 12 repay no principal, so the period 13 opening balance equals the facility, as in case runway_bound step 10 where the opening balance 700,000,000 cents equals the facility; k = 1/18 + all_in_rate 0.08 x (31/365) = 1/18 + (2/25) x (31/365) = 1/18 + 62/9125 = 9125/164250 + 1116/164250 = 10241/164250, an exact fraction with numerator 10241 and denominator 164250, decimal 0.06235007610350076103500761035.",
+    "step 21: DSCR bound F <= CFADS / (dscr_floor 1.1500 x k) = 30,000,000 / ((23/20) x (10241/164250)) = 30,000,000 / (235543/3285000) = 30,000,000 x 3,285,000 / 235,543 = 98,550,000,000,000 / 235,543 = 418,394,942.7493069206047303465 cents = 4,183,949.427493069206047303465 USD; floor to the largest whole cent (floor, not round) gives the linear bound 418,394,942 cents with remainder 176,494/235,543.",
+    "step 22: exact per-period quantization check at the linear bound 418,394,942: allocate_cents(418,394,942, 18) gives base = floor(418,394,942 / 18) = 23,244,163 cents with remainder 8, so period 13 principal = 23,244,164 cents; period 13 opening balance = 418,394,942 cents because no principal is repaid in periods 1 to 12; period 13 interest = 0.08 x 418,394,942 x 31/365 = 2,842,793.030575342465753424658 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 2,842,793 cents; debt service = 23,244,164 + 2,842,793 = 26,086,957 cents; DSCR = 30,000,000 / 26,086,957 = 1.149999978916667053194437358, strictly below dscr_floor 1.1500, so the linear bound is not feasible once the schedule rows are quantized.",
+    "step 23: the quantized schedule is the binding one: at F = 418,394,934, allocate_cents(418,394,934, 18) gives base = floor(418,394,934 / 18) = 23,244,163 cents with remainder 0, so all 18 amortizing periods pay 23,244,163 cents and period 13 principal = 23,244,163 cents; period 13 opening balance = 418,394,934 cents; interest = 0.08 x 418,394,934 x 31/365 = 2,842,792.976219178082191780822 cents, quantize to cents with ROUND_HALF_UP once = 2,842,793 cents; debt service = 23,244,163 + 2,842,793 = 26,086,956 cents; DSCR = 30,000,000 / 26,086,956 = 2,500,000/2,173,913 = 1.150000023000000460000009200, at or above dscr_floor 1.1500; at F + 1 cent = 418,394,935, allocate_cents remainder 1 gives period 13 principal = 23,244,164 cents with period 13 opening balance 418,394,935 cents, interest = 0.08 x 418,394,935 x 31/365 = 2,842,792.983013698630136986301 cents, quantize once = 2,842,793 cents, debt service = 23,244,164 + 2,842,793 = 26,086,957 cents, DSCR = 30,000,000 / 26,086,957 = 1.149999978916667053194437358, strictly below 1.1500; the largest feasible cent is therefore 418,394,934, which is the linear bound 418,394,942 shifted down by 8 cents because the allocate_cents remainder lifts period 13 principal to the ceiling of F/18 while the exact bound only carried 0.7493069206047303465 cents of headroom, so the quantized result is the binding one and facility_usd publishes as 418,394,934 integer cents.",
+    "step 24: DSCR basis check: using the unquantized period 13 interest 2,842,792.976219178082191780822 cents in the denominator gives 30,000,000 / 26,086,955.976219178082191780822 = 1.150000024048338402432568408, at or above 1.1500, and at F + 1 cent 30,000,000 / 26,086,956.983013698630136986301 = 1.149999979665479811613680263, strictly below 1.1500, so the quantized schedule row basis and the unquantized basis agree that 418,394,934 is the largest feasible cent.",
+    "step 25: min DSCR period identification at F = 418,394,934: debt service across amortizing periods 13 to 30 declines every period because the opening balance falls by 23,244,163 cents each period while day counts stay within 28 to 33 days, with series 26,086,956, then 25,842,415, then 25,689,576, then 25,613,157, then 25,455,224, then 25,363,521, then 25,017,088, then 24,925,385, then 24,874,439, then 24,573,856, then 24,466,870, then 24,385,356, then 24,130,625, then 24,033,828, then 23,875,895, then 23,702,678, then 23,580,407, then 23,386,812 cents, so period 13 carries the largest debt service; the largest interest only debt service across periods 1 to 12 is 3,026,199 cents (period 9, interest 0.08 x 418,394,934 x 33/365 = 3,026,198.974684931506849315068 cents quantized once = 3,026,199 cents), far below period 13 debt service 26,086,956 cents, so period 13 is the minimum DSCR period and min_dscr publishes as 1.1500.",
+    "step 26: slack checks at F = 418,394,934: band cap 1,000,000,000 minus 418,394,934 = 581,605,066 cents of headroom, so F is strictly below the band cap; runway bound 700,000,000 minus 418,394,934 = 281,605,066 cents of headroom, so F is strictly below the runway bound; the runway constraint holds at (2,500,000,000 minus 418,394,934) / 100,000,000 = 20.81605066 months, at or above 18.0, while the DSCR constraint is exactly tight at F and fails at F + 1 cent (1.149999978916667053194437358 below 1.1500), so binding_constraint = dscr.",
+    "step 27: post_draw_runway_months at the answer = (2,500,000,000 minus 418,394,934) / 100,000,000 = 2,081,605,066 / 100,000,000 = 20.81605066 months, quantize to scale 1 months with ROUND_HALF_UP once = 20.8; facility_usd = 418,394,934 integer cents, quantize to scale 0 with ROUND_HALF_UP once = 418,394,934, exact; min_dscr = period 13 DSCR 1.150000023000000460000009200, quantize to scale 4 ratio with ROUND_HALF_UP once = 1.1500.",
+    "step 28: case dscr_bound status = feasible because both constraints hold at F = 418,394,934: runway 20.8, exact 20.81605066, at or above 18.0 and min DSCR 1.1500, exact 1.150000023000000460000009200, at or above 1.1500; at F + 1 cent the DSCR constraint fails at 1.149999978916667053194437358 below 1.1500 while the runway stays at or above 18.0 and the facility stays below the band cap, so dscr is the first constraint to fail as F grows and binding_constraint = dscr."
+  ],
+  "inputs": {
+    "structure": {
+      "value": "io_then_straight_line",
+      "unit": "status"
+    },
+    "term": {
+      "value": 30,
+      "unit": "count",
+      "scale": 0
+    },
+    "io": {
+      "value": 12,
+      "unit": "count",
+      "scale": 0
+    },
+    "close": {
+      "value": "2026-04-30",
+      "unit": "date"
+    },
+    "all_in_rate": {
+      "value": "8.0000",
+      "unit": "percent_annual",
+      "scale": 4,
+      "source": "fixture pinned rate"
+    },
+    "band_cap_pct": {
+      "value": "50.00",
+      "unit": "percent",
+      "scale": 2
+    },
+    "gross_margin_pct": {
+      "value": "50.00",
+      "unit": "percent",
+      "scale": 2
+    },
+    "monthly_growth_pct": {
+      "value": "0.0000",
+      "unit": "percent",
+      "scale": 4
+    },
+    "last_round": {
+      "value": 2000000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "net_burn_monthly": {
+      "value": 100000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "runway_floor_months": {
+      "value": "18.0",
+      "unit": "months",
+      "scale": 1
+    },
+    "dscr_floor": {
+      "value": "1.1500",
+      "unit": "ratio",
+      "scale": 4
+    }
+  },
+  "cases": [
+    {
+      "case_id": "runway_bound",
+      "inputs": {
+        "cash": {
+          "value": 2500000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "revenue_monthly": {
+          "value": 110000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      "expected": {
+        "status": {
+          "value": "feasible",
+          "unit": "status"
+        },
+        "facility_usd": {
+          "value": 700000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "binding_constraint": {
+          "value": "runway",
+          "unit": "status"
+        },
+        "post_draw_runway_months": {
+          "value": "18.0",
+          "unit": "months",
+          "scale": 1
+        },
+        "min_dscr": {
+          "value": "1.2602",
+          "unit": "ratio",
+          "scale": 4
+        }
+      }
+    },
+    {
+      "case_id": "infeasible",
+      "inputs": {
+        "cash": {
+          "value": 150000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "revenue_monthly": {
+          "value": 110000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      "expected": {
+        "status": {
+          "value": "infeasible",
+          "unit": "status"
+        },
+        "binding_constraint": {
+          "value": "runway",
+          "unit": "status"
+        }
+      }
+    },
+    {
+      "case_id": "dscr_bound",
+      "inputs": {
+        "cash": {
+          "value": 2500000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "revenue_monthly": {
+          "value": 60000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      "expected": {
+        "status": {
+          "value": "feasible",
+          "unit": "status"
+        },
+        "facility_usd": {
+          "value": 418394934,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "binding_constraint": {
+          "value": "dscr",
+          "unit": "status"
+        },
+        "post_draw_runway_months": {
+          "value": "20.8",
+          "unit": "months",
+          "scale": 1
+        },
+        "min_dscr": {
+          "value": "1.1500",
+          "unit": "ratio",
+          "scale": 4
+        }
+      }
+    }
+  ],
+  "tolerances": {}
+}

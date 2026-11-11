@@ -1,0 +1,242 @@
+{
+  "fixture_id": "F2",
+  "title": "bullet schedule closed form",
+  "authored_by": "06-tester",
+  "authored_phase": 1,
+  "rate_source": "fixture_pinned",
+  "_comment": "Hand-computed ground truth for the bullet structure. Inputs are pinned test vectors, exempt from band validation. Expected values are already quantized at their storage or metric boundary with ROUND_HALF_UP, exactly as the engine will publish them.",
+  "arithmetic": [
+    "step 1: all_in_rate = base_rate 4.0000 + spread 4.0000 = 8.0000, scale 4 percent_annual, exact sum, no rounding needed.",
+    "step 2: payment date 1 = add_months(close 2026-03-31, 1) = 2026-04-30, day of month 31 clamped to April last day 30, 2026-04-30 is Thursday, a business day, no roll.",
+    "step 3: payment date 2 = add_months(close 2026-03-31, 2) = 2026-05-31, day 31 preserved because May has 31 days, 2026-05-31 is Sunday, roll forward to Monday 2026-06-01.",
+    "step 4: payment date 3 = add_months(close 2026-03-31, 3) = 2026-06-30, day 31 clamped to June last day 30, 2026-06-30 is Tuesday, a business day, no roll.",
+    "step 5: payment date 4 = add_months(close 2026-03-31, 4) = 2026-07-31, day 31 preserved because July has 31 days, 2026-07-31 is Friday, a business day, no roll. The four dates 2026-04-30, 2026-06-01, 2026-06-30, 2026-07-31 are strictly increasing.",
+    "step 6: period 1 spans (close 2026-03-31, payment 1 2026-04-30], days_between = 30, ACT/365 year fraction = 30/365.",
+    "step 7: period 1 interest = 0.08 x 100,000,000 cents x 30/365 = 657,534.246575342465753424657534 cents, quantize to cents with ROUND_HALF_UP once = 657,534 cents.",
+    "step 8: period 2 spans (payment 1 2026-04-30, payment 2 2026-06-01], days_between = 32, ACT/365 year fraction = 32/365, interest = 0.08 x 100,000,000 cents x 32/365 = 701,369.8630136986301369863014 cents, quantize to cents with ROUND_HALF_UP once = 701,370 cents.",
+    "step 9: period 3 spans (payment 2 2026-06-01, payment 3 2026-06-30], days_between = 29, ACT/365 year fraction = 29/365, interest = 0.08 x 100,000,000 cents x 29/365 = 635,616.4383561643835616438356 cents, quantize to cents with ROUND_HALF_UP once = 635,616 cents.",
+    "step 10: period 4 spans (payment 3 2026-06-30, payment 4 2026-07-31], days_between = 31, ACT/365 year fraction = 31/365, interest = 0.08 x 100,000,000 cents x 31/365 = 679,452.0547945205479452054794 cents, quantize to cents with ROUND_HALF_UP once = 679,452 cents.",
+    "step 11: opening balance period 1 = facility 100,000,000 cents. Principal = 0 cents in periods 1, 2, and 3, bullet repayment of 100,000,000 cents in period 4. Closing balance = opening minus principal: 100,000,000 then 100,000,000 then 100,000,000 then 0 cents.",
+    "step 12: opening balance period t equals the prior closing balance, so periods 2, 3, and 4 all open at 100,000,000 cents.",
+    "step 13: total_interest = 657,534 + 701,370 + 635,616 + 679,452 = 2,673,972 cents, exact integer sum of the quantized rows, no further rounding.",
+    "step 14: total_principal = 0 + 0 + 0 + 100,000,000 = 100,000,000 cents, exact integer sum. Row 4 closing balance 0 equals principal repaid, so the schedule ties out.",
+    "step 15: closing_fee = 1.00 percent x 100,000,000 cents = 1,000,000 cents = 10,000.00 USD, exact product, no rounding needed.",
+    "step 16: moic = (total_interest 2,673,972 + total_principal 100,000,000 + warrant value 0) / 100,000,000 = 1.02673972, quantize to scale 2 with ROUND_HALF_UP once = 1.03, closing fee excluded from the numerator.",
+    "step 17: warrant_coverage_pct 0.00 means no warrant is granted, so warrant value publishes as 0 usd_minor_units with status not_granted, never a missing field."
+  ],
+  "inputs": {
+    "close": {
+      "value": "2026-03-31",
+      "unit": "date"
+    },
+    "facility": {
+      "value": 100000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "term": {
+      "value": "4.0",
+      "unit": "months",
+      "scale": 1
+    },
+    "base_rate": {
+      "value": "4.0000",
+      "unit": "percent_annual",
+      "scale": 4,
+      "source": "fixture pinned rate, not a Valet observation"
+    },
+    "spread": {
+      "value": "4.0000",
+      "unit": "percent_annual",
+      "scale": 4
+    },
+    "closing_fee_pct": {
+      "value": "1.00",
+      "unit": "percent",
+      "scale": 2
+    },
+    "warrant_coverage_pct": {
+      "value": "0.00",
+      "unit": "percent",
+      "scale": 2
+    }
+  },
+  "expected": {
+    "all_in_rate": {
+      "value": "8.0000",
+      "unit": "percent_annual",
+      "scale": 4
+    },
+    "payment_dates": [
+      {
+        "value": "2026-04-30",
+        "unit": "date"
+      },
+      {
+        "value": "2026-06-01",
+        "unit": "date"
+      },
+      {
+        "value": "2026-06-30",
+        "unit": "date"
+      },
+      {
+        "value": "2026-07-31",
+        "unit": "date"
+      }
+    ],
+    "schedule": [
+      {
+        "period": {
+          "value": 1,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-04-30",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 657534,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 2,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-06-01",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 701370,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 3,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-06-30",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 635616,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      },
+      {
+        "period": {
+          "value": 4,
+          "unit": "count",
+          "scale": 0
+        },
+        "payment_date": {
+          "value": "2026-07-31",
+          "unit": "date"
+        },
+        "opening_balance": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "interest": {
+          "value": 679452,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "principal": {
+          "value": 100000000,
+          "unit": "usd_minor_units",
+          "scale": 0
+        },
+        "closing_balance": {
+          "value": 0,
+          "unit": "usd_minor_units",
+          "scale": 0
+        }
+      }
+    ],
+    "total_interest": {
+      "value": 2673972,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "total_principal": {
+      "value": 100000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "closing_fee": {
+      "value": 1000000,
+      "unit": "usd_minor_units",
+      "scale": 0
+    },
+    "moic": {
+      "value": "1.03",
+      "unit": "multiple",
+      "scale": 2
+    },
+    "warrant": {
+      "value": 0,
+      "unit": "usd_minor_units",
+      "scale": 0,
+      "status": "not_granted"
+    }
+  },
+  "tolerances": {}
+}
