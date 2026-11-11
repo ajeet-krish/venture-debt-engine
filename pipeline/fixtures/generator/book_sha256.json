@@ -1,0 +1,11 @@
+{
+  "book_sha256": {
+    "value": "317215cd56585bb5f04d79704cc3338c4412bddac8d2b85e2f80be54a5c0cbf9",
+    "unit": "sha256_hex"
+  },
+  "seed": 20261110,
+  "generator_version": "v1",
+  "_comment": "RNG drift fingerprint over the generator build_document; engine-derived by design, exempt from fixture-first per decisions record; changing requires a decisions entry",
+  "authored_by": "06-tester",
+  "authored_phase": 2
+}
