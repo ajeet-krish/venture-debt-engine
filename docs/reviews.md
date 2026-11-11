@@ -123,7 +123,7 @@ Per-item results:
 
 5. .DS_Store gitignored (was LOW): PASS. git check-ignore -v reports
    .gitignore:17 matching both .DS_Store and pipeline/.DS_Store; git status
-   --short is empty.
+   reports a clean tree.
 
 Standing green state (2026-11-11):
 - uv run pytest -q: 61 passed in 0.07s, exit 0.

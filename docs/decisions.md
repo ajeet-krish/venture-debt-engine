@@ -111,3 +111,39 @@ Append-only decision history. New entries are appended at the bottom.
 **Decision**: Phase 1 lands as two commits: commit 1 contains only pipeline/fixtures/golden/ (F1 to F6), commit 2 contains the engine, verify skeleton, tests, config, and docs. Owner decision 2026-11-11.
 **Rationale**: fixture integrity does not depend on commit timing alone. Every expected value was hand-computed from the spec formulas with standalone scratch scripts that were deleted after use and never imported engine code for derivation (F1b cross-checked its hand-derived exact fractions against engine functions only as a validation step after the values were fixed). The gate now fails on any missing fixture, and the fixture envelope carries arithmetic for every expected value.
 **Trade-offs**: git history shows the fixtures one commit ahead of the engine rather than authored days earlier; a reviewer reading history sees ordering, not authoring time. Accepted as the honest reconstruction.
+
+## 2026-11-11 - Phase 2: Valet series selection and label patterns
+**Context**: Spec section 9 lists CORRA (AVG.INTWO) and the 3-month and 6-month bill series as candidates for the floating base rate; series labels are unverified until an assertion runs.
+**Decision**: Primary series BTB3M (3-month bill), fallback BTB6M; AVG.INTWO rejected as an overnight fixing that is noisy for monthly accrual. Expected label patterns are regexes committed in scenario.toml [rates], asserted at every engine load and at refresh; a mismatch raises printing the actual label verbatim and fails the run. Patterns are best-effort until the first refresh, which may tighten them in a reviewed commit. Owner confirmed 2026-11-11.
+**Rationale**: a 3-month bill is the standard short-rate proxy for floating loan pricing and matches the monthly reset convention; the assertion makes an unverified series fail loudly per spec.
+**Trade-offs**: no runtime fallback (config change plus this log required); patterns may need one tightening pass after the first live refresh.
+
+## 2026-11-11 - Phase 2: Derived term parameters instead of new draws
+**Context**: The frozen 14-draw order (architecture section 11) has no term or tenor draw, but schedules need term, RBF horizon, and bridge tenor.
+**Decision**: Term is derived: term_months = io_months + 36 amortizing periods for bullet and IO-then-straight-line (reproducing the research 4-year, 12-IO, 36-amortizing example and staying inside the 36 to 60 band); rbf horizon 24 periods at 5.00 percent remittance; bridge tenor 3 months. All pinned in [generator]. Owner confirmed 2026-11-11.
+**Rationale**: adding draws would re-key the RNG stream and invalidate any committed book hash; derived values keep the stream stable and the parameters citable.
+**Trade-offs**: less variety in term and tenor; accepted for determinism.
+
+## 2026-11-11 - Phase 2: Canonical serviceability schedule for sizing
+**Context**: Sizing needs a debt-service schedule per candidate facility, but bullet balloons make min DSCR degenerate (the balloon period repays the whole facility) and per-structure bases would make the 24 capacities incomparable.
+**Decision**: Every borrower is sized on one canonical io-then-straight-line schedule (borrower io_months, term = io + 36) regardless of the structure draw; the borrower's own structure governs only its schedule payload and later returns. Pre-revenue borrowers size on runway only with DSCR not_applicable. Owner confirmed 2026-11-11.
+**Rationale**: matches the F1 fixture's pinned structure, keeps capacities comparable across the book, and avoids a degenerate bullet predicate.
+**Trade-offs**: capacity is a disclosed serviceability proxy, not the structure's own debt service (disclosed on the methods page in phase 4).
+
+## 2026-11-11 - Phase 2: Strata slot mechanics and book hash fixture
+**Context**: Spec 10.1 requires the strata manifest to guarantee at least one borrower in each of six strata while the draw stream stays aligned; the book hash must catch RNG drift.
+**Decision**: SYN-0001 to SYN-0006 are strata slots: all 14 uniforms are consumed, then post-draw overrides replace named values (full consistent sets for lender-type touches), derived values recompute, and post-override band assertions run with one documented exception (ARR 0 legal iff pre_revenue). Manifest predicates are independent and asserted at build time with counts and sorted member ids. The expected book hash (sha256 over the generator's pre-pricing output document) is committed at pipeline/fixtures/generator/book_sha256.json and is exempt from the golden fixture-first rule; changing it requires a decision entry.
+**Rationale**: post-draw overrides never skip a uniform; the manifest fails loudly on lost coverage; the hash fingerprint makes RNG drift a build failure with both digests printed.
+**Trade-offs**: slot recipes are hand-picked (margins chosen across 5 to 15 percent all-in so the unknown base-rate level cannot flip a stratum); the hash is engine-derived by design.
+
+## 2026-11-11 - Phase 2: Aggregate payload layout and asof
+**Context**: payloads/ needs a canonical layout, byte identity, and per the determinism pins an asof derived from the committed rate snapshot date.
+**Decision**: One aggregate file payloads/<asof>/book.json (meta plus rates plus the 24 borrowers with inputs, paths, pricing, sizing, schedules); <asof> equals the base-rate observation date from the committed snapshot; payloads/build_meta.json sits outside the asof directory and is excluded from byte identity. RBF and bridge borrowers publish their structure schedule as not_applicable with a phase 3 reason.
+**Rationale**: one deterministic document, one book hash target, trivial two-build diff, and the site loads the whole book once for the selector and dashboard.
+**Trade-offs**: no per-borrower caching (negligible at 24 borrowers) and one larger file.
+
+## 2026-11-11 - Phase 2: Solver fidelity and excursion policy
+**Context**: F1 steps 21 to 23 show the analytic DSCR bound is 8 cents too high once schedule rows quantize, and spec 10.4 makes the band-excursion check a report, not a failure.
+**Decision**: The sizing bisection rebuilds freshly quantized schedule rows for every candidate facility and compares unquantized ratios to the floors (equality feasible); no analytic shortcut. The band-excursion check compares the base all-in against the total-rate columns (5 to 8 bank, 10 to 14 non-bank), publishes within_band or excursion per borrower, prints the report in the build log, and never fails the build; the shocked all-in is excluded from the check.
+**Rationale**: exact agreement with the hand-computed fixture to the cent; the spec asks the excursion to be flagged and reported, with the short-rate restatement disclosed on the methods page.
+**Trade-offs**: bisection is slower than an analytic bound (trivial at 60 iterations); excursions surface in the log and payload but not in the exit code.
