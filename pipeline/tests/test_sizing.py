@@ -11,9 +11,11 @@ Also covered: the exact feasibility boundary at the F1b answer and at the
 next cent (both through the predicate and through size_facility with the cap
 set to the failing cent), band_cap binding on a synthetic case where the cap
 itself is feasible, populated iteration and bracket fields with a one-cent
-final bracket, the ValueError guards for a non-positive net burn and a cfads
-length mismatch, and the SolverError hard failure that prints the bracket
-when an oversized band cap forces the 60-iteration ceiling.
+final bracket, the pre-revenue runway-only path (an all-zero CFADS path
+where the DSCR scan is never consulted, min_dscr stays None, and binding
+never names dscr), the ValueError guards for a non-positive net burn and a
+cfads length mismatch, and the SolverError hard failure that prints the
+bracket when an oversized band cap forces the 60-iteration ceiling.
 
 Every expected value is read from the committed JSON fixture; nothing here
 regenerates a fixture. The fixture pins term 30 with io 12 and close
@@ -152,6 +154,70 @@ def test_f1c_infeasible_at_zero_draw_matches_fixture() -> None:
     assert result.post_draw_runway_months == Decimal("1.5")
     assert result.min_dscr is None
     assert result.iterations == 0
+
+
+def test_pre_revenue_zero_cfads_reduces_to_runway_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pre-revenue sizing consults the runway floor alone, never DSCR.
+
+    An all-zero CFADS path of term length short-circuits the DSCR scan, so
+    the schedule builder is replaced with a tripwire that raises: a passing
+    run proves no schedule (and therefore no DSCR evaluation) is ever built,
+    and min_dscr stays None. With feasible cash the runway floor alone sets
+    the answer and the binding constraint; with cash already below the floor
+    at zero draw the case is infeasible on runway. No all-zero-cfads
+    evaluation ever returns binding dscr.
+    """
+    term = int(SHARED["term"]["value"])
+    close = date.fromisoformat(str(SHARED["close"]["value"]))
+    net_burn_cents = 100_000_000
+
+    def _inputs(cash_cents: int) -> SizingInputs:
+        return SizingInputs(
+            cash_cents=cash_cents,
+            net_burn_cents=net_burn_cents,
+            cfads_cents=tuple([0] * term),
+            close=close,
+            term_months=term,
+            io_months=int(SHARED["io"]["value"]),
+            all_in_rate=Decimal(str(SHARED["all_in_rate"]["value"])),
+            band_cap_cents=3_000_000_000,
+        )
+
+    def _tripwire(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("DSCR schedule built for a pre-revenue borrower")
+
+    monkeypatch.setattr("vdebt.sizing.build_schedule", _tripwire)
+
+    # Feasible cash: 4,000,000,000 minus F must cover 18 months of burn at
+    # 100,000,000 per month, so the runway floor alone caps F at
+    # 2,200,000,000 cents, strictly under the 3,000,000,000 band cap.
+    feasible = size_facility(_inputs(4_000_000_000), CFG)
+    assert feasible.status == STATUS_FEASIBLE
+    assert feasible.facility_cents == 2_200_000_000
+    assert feasible.binding_constraint == BINDING_RUNWAY
+    assert feasible.binding_constraint != BINDING_DSCR
+    assert feasible.min_dscr is None
+    assert feasible.post_draw_runway_months == Decimal("18.0")
+
+    # Cash below the runway floor at zero draw: infeasible on runway alone.
+    infeasible = size_facility(_inputs(1_000_000_000), CFG)
+    assert infeasible.status == STATUS_INFEASIBLE
+    assert infeasible.facility_cents is None
+    assert infeasible.binding_constraint == BINDING_RUNWAY
+    assert infeasible.binding_constraint != BINDING_DSCR
+    assert infeasible.min_dscr is None
+    assert infeasible.post_draw_runway_months == Decimal("10.0")
+    assert infeasible.iterations == 0
+
+    # Every feasibility probe on an all-zero CFADS path stays runway-only:
+    # the first failing constraint can only be None or runway, never dscr.
+    inputs = _inputs(4_000_000_000)
+    for cents in (0, 1, 2_200_000_000, 2_200_000_001, 3_000_000_000):
+        binding = _first_failing_constraint(inputs, CFG, cents)
+        assert binding != BINDING_DSCR
+        assert binding in (None, BINDING_RUNWAY)
 
 
 def test_f1b_boundary_feasible_at_answer_infeasible_next_cent() -> None:

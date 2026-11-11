@@ -153,3 +153,29 @@ Verification checklist:
 - [x] No em dashes, double hyphens, or dash equivalents; use proper punctuation
 - [x] Phase code integrates cleanly with prior phases
 
+## 2026-11-11 - Phase 2: Code review
+
+Verdict: PASS
+
+Scope: commits 358e5be through 3a7bb4f plus the uncommitted test_build.py
+(rates, generator, pricing, schedule, sizing, build, CLI build subcommand,
+config extensions, refresh_rates.py, scenario.toml phase 2 additions,
+committed Valet data, six phase 2 test suites, payloads, docs updates).
+Commands run: 156 pytest green (exit 0), ruff clean (exit 0), verify gate PASS
+(59 files, 0 violations, 6 fixtures validated), build exit 0 with the written
+book.json byte identical to the committed payloads/2026-11-10/book.json
+(sha256 0b72e75196614322b2c36e22698fc7a0300b6ee249f54f1832d5bb9b95af56fb).
+
+| Severity | File:Line | Issue | Fix |
+|----------|-----------|-------|-----|
+| Low | pipeline/tests/test_rates.py:16 | Docstring claims the real pipeline/data/rates directory does not exist yet; it is now committed and no test reads it directly (P2.7 asked for a manifest happy path on the committed data; covered only indirectly through the subprocess builds in test_build.py) | Add one test running load_rate_snapshot on the committed data/rates directory; update the docstring |
+| Low | pipeline/tests/test_sizing.py | P2.7 item "pre_revenue predicate reduces to runway only" has no direct unit test; behavior is exercised only indirectly through the four pre-revenue borrowers in the build tests | Add a size_facility case with an all-zero CFADS path asserting runway-only binding and min_dscr None |
+| Low | pipeline/tests/test_generator.py:125 | Draw spy counts 336 uniforms but does not assert the per-position draw mapping (P2.7 wording: order recorded via a spy Random); order is enforced structurally by code position | Optional: record per-borrower draw slots and assert the frozen order mapping |
+| Low | pipeline/src/vdebt/snapshot.py:304 | validate_payload (phase 1 code) does not flag bare numeric leaves outside envelopes; the every numeric leaf has a unit rule holds by construction in build.py and an independent scan of the committed book.json found zero bare numeric leaves | Consider a hard leaf check in the phase 5 verify gate |
+| Trivial | pipeline/tests/test_pricing.py:56 | In-memory test snapshot still uses the retired series code BTB3M | Rename the synthetic series to TB.CDN.90D.MID for consistency with the decisions record |
+
+Recurring notes: none new. Determinism pins (336 uniforms, frozen draw order,
+single quantize per boundary, explicit MONEY_CONTEXT, no wall clock, no hash
+order), the envelope matrix, and the fixture rules all held under review. F1 to
+F6 are untouched since commit 3aca8cd and the book hash fixture matches live
+generator output (317215cd56585bb5f04d79704cc3338c4412bddac8d2b85e2f80be54a5c0cbf9).

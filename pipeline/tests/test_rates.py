@@ -8,16 +8,19 @@ series label assertion message (actual label, series code, and expected
 pattern printed), seriesDetail key equality, one ROUND_HALF_UP quantize of
 the observation value to percent_annual scale 4 with JSON floats rejected,
 business-day observation dates, loud failure on a missing manifest or
-series file, and the no-network confinement of the engine package.
+series file, the no-network confinement of the engine package, and one
+end-to-end load of the real committed pipeline/data/rates directory.
 
-Every rate fixture is built under tmp_path in the documented Valet response
-shape (seriesDetail keyed by the requested series code plus an observations
-list whose entries carry a date and either a flat or a nested value) with a
-freshly hashed SHA256SUMS manifest, because the real pipeline/data/rates
-directory does not exist yet. No test reads that directory and no test
-performs any network call. The forbidden module name used by the confinement
-tests is assembled from two literals so this file, which itself lives under
-pipeline/, never references it directly.
+Every synthetic rate fixture is built under tmp_path in the documented
+Valet response shape (seriesDetail keyed by the requested series code plus
+an observations list whose entries carry a date and either a flat or a
+nested value) with a freshly hashed SHA256SUMS manifest, so the failure
+paths are exercised without writing into the committed pipeline/data/rates
+directory, which now holds TB.CDN.90D.MID.json and SHA256SUMS and is read
+directly by exactly one test below. No test performs any network call. The
+forbidden module name used by the confinement tests is assembled from two
+literals so this file, which itself lives under pipeline/, never references
+it directly.
 """
 
 import ast
@@ -30,6 +33,7 @@ from pathlib import Path
 import pytest
 
 from vdebt.config import RatesConfig, load_scenario
+from vdebt.dates import is_business_day
 from vdebt.rates import (
     MANIFEST_NAME,
     RateError,
@@ -141,6 +145,32 @@ def test_load_rate_snapshot_happy_path(tmp_path: Path) -> None:
     assert snapshot.source_timestamp == snapshot.observation_date.isoformat()
     digest = hashlib.sha256((rates_dir / f"{SERIES}.json").read_bytes()).hexdigest()
     assert snapshot.manifest_hashes == {f"{SERIES}.json": digest}
+
+
+def test_load_rate_snapshot_reads_committed_rates_directory() -> None:
+    """The real committed pipeline/data/rates loads end to end, no fixtures.
+
+    This is the only test that reads the committed directory directly: the
+    manifest verifies, the series file parses, the label matches the pinned
+    pattern, and the base observation lands on a business day with a scale 4
+    Decimal, all for the data the engine actually publishes from.
+    """
+    rates_dir = PIPELINE_DIR / "data" / "rates"
+    snapshot = load_rate_snapshot(rates_dir, RATES_CFG)
+
+    assert RATES_CFG.series == "TB.CDN.90D.MID"
+    assert snapshot.series == "TB.CDN.90D.MID"
+    assert snapshot.label == "Treasury bills, 3-month"
+    assert isinstance(snapshot.observation_date, date)
+    assert not isinstance(snapshot.observation_date, datetime)
+    assert is_business_day(snapshot.observation_date)
+    assert isinstance(snapshot.base_rate, Decimal)
+    assert snapshot.base_rate.as_tuple().exponent == -4
+    assert len(str(snapshot.base_rate).partition(".")[2]) == 4
+    assert snapshot.manifest_hashes
+    assert f"{snapshot.series}.json" in snapshot.manifest_hashes
+    assert snapshot.source == "Bank of Canada Valet"
+    assert snapshot.source_timestamp == snapshot.observation_date.isoformat()
 
 
 def test_label_pattern_from_real_scenario_accepts_matching_label() -> None:

@@ -53,13 +53,13 @@ FRIDAY_OBSERVATION = date(2026, 11, 6)
 def _snapshot(base_rate: str) -> RateSnapshot:
     """Build an in-memory RateSnapshot with full external provenance."""
     return RateSnapshot(
-        series="BTB3M",
+        series="TB.CDN.90D.MID",
         label="Bank of Canada 3 month treasury bill",
         observation_date=FRIDAY_OBSERVATION,
         base_rate=Decimal(base_rate),
         source="Bank of Canada Valet",
         source_timestamp=FRIDAY_OBSERVATION.isoformat(),
-        manifest_hashes={"BTB3M.json": "0" * 64},
+        manifest_hashes={"TB.CDN.90D.MID.json": "0" * 64},
     )
 
 
