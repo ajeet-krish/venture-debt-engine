@@ -34,8 +34,8 @@ BAND_FULL = [
 # to plant a single bad value while everything else stays valid.
 RATES_BLOCK = (
     "[rates]\n"
-    'series = "BTB3M"\n'
-    'fallback_series = "BTB6M"\n'
+    'series = "TB.CDN.90D.MID"\n'
+    'fallback_series = "TB.CDN.180D.MID"\n'
     "label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'\n"
     "fallback_label_pattern = '(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill'\n"
 )
@@ -196,8 +196,8 @@ def test_band_missing_band_key_is_rejected(tmp_path: Path):
 def test_rates_section_parses_to_pinned_values():
     rates = load_scenario(SCENARIO_PATH).rates
     assert isinstance(rates, RatesConfig)
-    assert rates.series == "BTB3M"
-    assert rates.fallback_series == "BTB6M"
+    assert rates.series == "TB.CDN.90D.MID"
+    assert rates.fallback_series == "TB.CDN.180D.MID"
     assert rates.label_pattern == (
         "(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill"
     )

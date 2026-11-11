@@ -7,13 +7,19 @@ unlisted, a listed entry that is not a .json file, or a digest mismatch each
 raise RateError with a precise message, so a missing or tampered commit fails
 loudly instead of fabricating a rate.
 
-The response follows the documented Valet shape: a seriesDetail object keyed
-by the requested series code and carrying a label, plus an observations list
-of {"d": "YYYY-MM-DD", "v": "2.74"} entries whose value may be null. The base
-observation is the last entry with a non-null value; its value is parsed with
-Decimal and quantized exactly once to percent_annual scale 4 (so "2.74"
-becomes "2.7400"), and its date must be a business day because it is the book
-close date. The label is asserted against the pattern pinned in scenario.toml
+The committed document is the response of GET
+https://www.bankofcanada.ca/valet/observations/<CODE>/json?recent=90: a
+seriesDetail object keyed by the requested series code and carrying a label,
+plus an observations list whose entries nest the value under that same code,
+for example {"d": "2026-11-10", "TB.CDN.90D.MID": {"v": "2.61"}}, with the
+value null on days the series does not publish. The list arrives in
+descending date order, so the base observation is the LATEST date among the
+entries with a non-null value (a lexicographic compare on the ISO date),
+never merely the last list entry. The flat {"d": ..., "v": ...} shape is
+accepted too, so both stay readable. The chosen value is parsed with Decimal
+and quantized exactly once to percent_annual scale 4 (so "2.74" becomes
+"2.7400"), and its date must be a business day because it is the book close
+date. The label is asserted against the pattern pinned in scenario.toml
 [rates]; a mismatch raises SeriesLabelError printing the series code, the
 expected pattern, and the actual label verbatim.
 
@@ -174,12 +180,14 @@ def load_rate_snapshot(rates_dir: Path, cfg: RatesConfig) -> RateSnapshot:
 
     Steps in order: verify the manifest in both directions, read and parse
     <series>.json, assert the response seriesDetail key equals the requested
-    series code, take the last observation with a non-null value, parse it
-    with Decimal and quantize once to percent_annual scale 4, require the
-    observation date to be a business day, and assert the series label
-    against cfg.label_pattern. Every failure raises RateError (or its
-    subclass SeriesLabelError) with a precise message; a missing manifest or
-    a missing series file is a loud failure and never a fabricated rate.
+    series code, take the entry with the latest date among the observations
+    whose value is non-null (the live list arrives descending, so list order
+    never decides the base), parse that value with Decimal and quantize once
+    to percent_annual scale 4, require the observation date to be a business
+    day, and assert the series label against cfg.label_pattern. Every failure
+    raises RateError (or its subclass SeriesLabelError) with a precise
+    message; a missing manifest or a missing series file is a loud failure
+    and never a fabricated rate.
     """
     entries = verify_manifest(rates_dir)
     series = cfg.series
@@ -222,22 +230,45 @@ def load_rate_snapshot(rates_dir: Path, cfg: RatesConfig) -> RateSnapshot:
     observations = document.get("observations")
     if not isinstance(observations, list) or not observations:
         raise RateError(f"{path}: missing or empty 'observations' list in the Valet response")
-    chosen: dict[str, object] | None = None
-    for item in reversed(observations):
+    candidates: dict[str, object] = {}
+    for item in observations:
         if not isinstance(item, dict):
             raise RateError(
                 f"{path}: every observation must be a JSON object, got {type(item).__name__}"
             )
-        if "d" not in item or "v" not in item:
-            raise RateError(f"{path}: observation must carry 'd' and 'v' keys: {item!r}")
-        if item["v"] is not None:
-            chosen = item
-            break
-    if chosen is None:
+        if "d" not in item:
+            raise RateError(f"{path}: observation must carry a 'd' key: {item!r}")
+        if "v" in item:
+            value = item["v"]
+        elif series in item:
+            nested = item[series]
+            if not isinstance(nested, dict) or "v" not in nested:
+                raise RateError(
+                    f"{path}: observation {series!r} entry must be an object "
+                    f"carrying 'v': {item!r}"
+                )
+            value = nested["v"]
+        else:
+            raise RateError(
+                f"{path}: observation must carry 'd' and either 'v' or a nested "
+                f"{series!r} object: {item!r}"
+            )
+        if value is None:
+            continue
+        raw_date = item["d"]
+        if not isinstance(raw_date, str):
+            raise RateError(
+                f"{path}: observation date must be a string, got {type(raw_date).__name__}"
+            )
+        candidates[raw_date] = value
+    if not candidates:
         raise RateError(f"{path}: no observation carries a non-null value")
-    raw_date = chosen["d"]
-    if not isinstance(raw_date, str):
-        raise RateError(f"{path}: observation date must be a string, got {type(raw_date).__name__}")
+    # ISO YYYY-MM-DD dates compare lexicographically, so the lexicographic
+    # maximum is the latest date. The live list arrives descending, so list
+    # order alone would pick the newest first and a planted older non-null
+    # entry at the end would be ignored; the maximum keeps both orders correct.
+    raw_date = max(candidates)
+    raw_value = candidates[raw_date]
     try:
         observation_date = date.fromisoformat(raw_date)
     except ValueError as exc:
@@ -249,7 +280,6 @@ def load_rate_snapshot(rates_dir: Path, cfg: RatesConfig) -> RateSnapshot:
             f"{path}: observation date {observation_date.isoformat()} is not a "
             "business day (Monday to Friday, no holiday table)"
         )
-    raw_value = chosen["v"]
     if isinstance(raw_value, bool) or not isinstance(raw_value, (str, int)):
         raise RateError(
             f"{path}: observation value must be a decimal string, got "

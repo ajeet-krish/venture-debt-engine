@@ -27,8 +27,8 @@ valuation_factor = "0.15"
 placement = "final_payment_date"
 
 [rates]
-series = "BTB3M"
-fallback_series = "BTB6M"
+series = "TB.CDN.90D.MID"
+fallback_series = "TB.CDN.180D.MID"
 label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'
 fallback_label_pattern = '(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill'
 

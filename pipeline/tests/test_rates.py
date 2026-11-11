@@ -12,11 +12,12 @@ series file, and the no-network confinement of the engine package.
 
 Every rate fixture is built under tmp_path in the documented Valet response
 shape (seriesDetail keyed by the requested series code plus an observations
-list of date and value entries) with a freshly hashed SHA256SUMS manifest,
-because the real pipeline/data/rates directory does not exist yet. No test
-reads that directory and no test performs any network call. The forbidden
-module name used by the confinement tests is assembled from two literals so
-this file, which itself lives under pipeline/, never references it directly.
+list whose entries carry a date and either a flat or a nested value) with a
+freshly hashed SHA256SUMS manifest, because the real pipeline/data/rates
+directory does not exist yet. No test reads that directory and no test
+performs any network call. The forbidden module name used by the confinement
+tests is assembled from two literals so this file, which itself lives under
+pipeline/, never references it directly.
 """
 
 import ast
@@ -77,7 +78,8 @@ def _valet_document(
     """Build one Valet response body in the documented shape.
 
     The default observation list ends with a null entry on a Saturday, so a
-    successful load also proves the reader takes the last non-null value.
+    successful load also proves the reader takes the latest non-null value
+    rather than the last list entry.
     """
     if observations is None:
         observations = [
@@ -214,18 +216,22 @@ def test_manifest_unsorted_lines_fail(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("manifest_text", "fragment"),
     [
-        pytest.param(f"{'0' * 64} BTB3M.json\n", "two ASCII spaces", id="single-space"),
-        pytest.param(f"{'z' * 64}  BTB3M.json\n", "64 lowercase hex", id="non-hex-digest"),
         pytest.param(
-            f"{'0' * 64}  BT B3M.json\n", "file name", id="file-name-with-space"
+            f"{'0' * 64} TB.CDN.90D.MID.json\n", "two ASCII spaces", id="single-space"
         ),
         pytest.param(
-            f"{'0' * 64}  BTB3M.json",
+            f"{'z' * 64}  TB.CDN.90D.MID.json\n", "64 lowercase hex", id="non-hex-digest"
+        ),
+        pytest.param(
+            f"{'0' * 64}  TB.CDN 90D.MID.json\n", "file name", id="file-name-with-space"
+        ),
+        pytest.param(
+            f"{'0' * 64}  TB.CDN.90D.MID.json",
             "trailing LF newline",
             id="no-trailing-newline",
         ),
         pytest.param(
-            f"{'0' * 64}  BTB3M.json\r\n",
+            f"{'0' * 64}  TB.CDN.90D.MID.json\r\n",
             "LF line endings",
             id="crlf-line-endings",
         ),
@@ -349,6 +355,48 @@ def test_friday_observation_date_accepted(tmp_path: Path) -> None:
 
     assert snapshot.observation_date == date(2026, 11, 6)
     assert snapshot.source_timestamp == FRIDAY
+
+
+def test_nested_live_shape_picks_latest_date_not_list_position(tmp_path: Path) -> None:
+    """The live Valet document: value nested under the series code, descending.
+
+    The newest non-null entry sits at the front (2026-11-06) and a planted
+    older non-null entry sits at the end (2026-11-03), so a reader that trusts
+    list position in either direction picks the wrong date. The latest-date
+    rule must return 2026-11-06 with 2.7400.
+    """
+    observations: list[dict[str, object]] = [
+        {"d": FRIDAY, SERIES: {"v": "2.74"}},
+        {"d": "2026-11-05", SERIES: {"v": None}},
+        {"d": "2026-11-04", SERIES: {"v": "2.72"}},
+        {"d": "2026-11-03", SERIES: {"v": "2.68"}},
+    ]
+    rates_dir = _write_json_rates(
+        tmp_path, {f"{SERIES}.json": _valet_document(observations=observations)}
+    )
+
+    snapshot = load_rate_snapshot(rates_dir, RATES_CFG)
+
+    assert snapshot.observation_date == date(2026, 11, 6)
+    assert snapshot.base_rate == Decimal("2.7400")
+    assert snapshot.label == MATCHING_LABEL
+
+
+def test_flat_shape_still_accepted(tmp_path: Path) -> None:
+    """The flat {"d", "v"} entries stay readable alongside the nested shape."""
+    observations: list[dict[str, object]] = [
+        {"d": "2026-11-05", "v": "2.72"},
+        {"d": FRIDAY, "v": "2.74"},
+        {"d": "2026-11-07", "v": None},
+    ]
+    rates_dir = _write_json_rates(
+        tmp_path, {f"{SERIES}.json": _valet_document(observations=observations)}
+    )
+
+    snapshot = load_rate_snapshot(rates_dir, RATES_CFG)
+
+    assert snapshot.observation_date == date(2026, 11, 6)
+    assert snapshot.base_rate == Decimal("2.7400")
 
 
 def test_missing_manifest_fails_loudly(tmp_path: Path) -> None:

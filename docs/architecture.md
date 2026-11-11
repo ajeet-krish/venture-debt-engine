@@ -687,7 +687,7 @@ File: pipeline/src/vdebt/rates.py. It reads committed Bank of Canada Valet JSON
 under pipeline/data/rates/ and never touches the network.
 
 Committed data:
-- pipeline/data/rates/BTB3M.json: the raw Valet response body, committed
+- pipeline/data/rates/TB.CDN.90D.MID.json: the raw Valet response body, committed
   verbatim as received (UTF-8).
 - pipeline/data/rates/SHA256SUMS: one line per committed JSON file, sorted by
   file name, format "64 lowercase hex characters, two ASCII spaces, file name",
@@ -695,12 +695,14 @@ Committed data:
   nothing else.
 
 Series selection:
-- Primary: BTB3M, the 3-month Treasury bill rate. Rationale: a 3-month bill is
+- Primary: TB.CDN.90D.MID, the 3-month Treasury bill rate (label "Treasury
+  bills, 3-month"). Rationale: a 3-month bill is
   the standard short-rate proxy for floating loan pricing, its tenor matches
   the monthly accrual reset, and it is a published government rate rather than
   a bank quote. This matches the spec section 9 rebasing decision (short rate
   plus spread, restatement disclosed on the methods page).
-- Fallback: BTB6M, the 6-month bill. Same series family and response shape. It
+- Fallback: TB.CDN.180D.MID, the 6-month bill (label "Treasury bills,
+  6-month"). Same series family and response shape. It
   activates only by changing rates.series in scenario.toml with a
   docs/decisions.md record; there is no runtime fallback, so CI behavior stays
   deterministic.
@@ -716,8 +718,8 @@ Series label assertion (spec section 9 and the section 13 CI gate):
   raises SeriesLabelError whose message prints the series code, the expected
   pattern, and the actual label verbatim. It runs in two places: at engine load
   against the label in the committed JSON (the startup assertion from the
-  section 3 decisions log), and in the refresh script against the live
-  series-detail response before anything is written.
+  section 3 decisions log), and in the refresh script against the live label
+  before anything is written.
 - The reader also asserts the response seriesDetail key equals the requested
   series code. A mismatch is the same loud failure.
 - The patterns are best-effort until the first refresh confirms the live label.
@@ -749,8 +751,16 @@ def load_rate_snapshot(rates_dir: Path, cfg: RatesConfig) -> RateSnapshot
 - verify_manifest raises RateError unless the manifest lists exactly the
   committed JSON files and every digest matches (checked in both directions:
   listed but missing fails, present but unlisted fails).
-- The base observation is the last observation in the response with a non-null
-  value. Its value is parsed with Decimal and quantized once to percent_annual
+- The committed document is the observations endpoint response: GET
+  /observations/<CODE>/json?recent=90 returns seriesDetail (keyed by the
+  series code) plus an observations list whose entries nest the value under
+  the requested code, for example {"d": "2026-11-10", "TB.CDN.90D.MID":
+  {"v": "2.61"}}, in descending date order. The reader also accepts the flat
+  {"d": ..., "v": ...} shape, so both stay readable.
+- The base observation is the entry with the LATEST date among those whose
+  value is non-null (lexicographic compare on the ISO date), never merely the
+  last list entry, so a descending response cannot misorder the base. Its
+  value is parsed with Decimal and quantized once to percent_annual
   scale 4 (for example "2.74" becomes "2.7400").
 - observation_date must be a business day; it is the book close date and the
   asof (P2.6). The published base-rate envelope uses the external provenance
@@ -760,12 +770,14 @@ def load_rate_snapshot(rates_dir: Path, cfg: RatesConfig) -> RateSnapshot
 Manual refresh workflow (the only network code in the repository):
 - pipeline/scripts/refresh_rates.py, standard library argparse plus
   urllib.request plus json plus hashlib. Steps in order: (1) GET the
-  series-detail endpoint for the chosen series and assert the label via the
-  same assertion as the reader; on mismatch print the actual label and exit
-  non-zero with nothing written; (2) GET the observations document with a
-  recent window; (3) write the raw bytes to pipeline/data/rates/<CODE>.json;
-  (4) regenerate SHA256SUMS (sorted, two spaces, LF); (5) print the old and
-  new digests and the observation date.
+  observations endpoint /observations/<CODE>/json?recent=90 and assert the
+  label from its seriesDetail via the same assertion as the reader; on
+  mismatch print the actual label and exit non-zero with nothing written
+  (a second GET of the series-detail endpoint is used only when the
+  observations document lacks seriesDetail); (2) parse the observations,
+  taking the latest non-null date and value; (3) write the raw bytes to
+  pipeline/data/rates/<CODE>.json; (4) regenerate SHA256SUMS (sorted, two
+  spaces, LF); (5) print the old and new digests and the observation date.
 - The refresh workflow file .github/workflows/refresh-rates.yml invokes it on
   workflow_dispatch only and opens a pull request. It never runs on push and
   never runs in a blocking gate. A test asserts that no file under
@@ -833,8 +845,8 @@ floats as before):
 
 ```toml
 [rates]
-series = "BTB3M"
-fallback_series = "BTB6M"
+series = "TB.CDN.90D.MID"
+fallback_series = "TB.CDN.180D.MID"
 label_pattern = '(?i)bill.{0,40}3.{0,8}month|3.{0,8}month.{0,40}bill'
 fallback_label_pattern = '(?i)bill.{0,40}6.{0,8}month|6.{0,8}month.{0,40}bill'
 
@@ -1263,7 +1275,7 @@ double hyphen; no command-line flags appear in docs beyond flag tokens.
 |---|-------|-------|-----------|
 | 1 | scenario.toml [rates], [generator], four bands; config.py extension + tests | backend-dev | none |
 | 2 | rates.py reader (manifest, label assert, snapshot) + test_rates.py | backend-dev, tester | 1 |
-| 3 | refresh_rates.py + refresh-rates.yml; run the first manual refresh, commit BTB3M.json and SHA256SUMS, tighten label pattern if the live label differs (decision entry) | backend-dev (data via 10-git) | 2 |
+| 3 | refresh_rates.py + refresh-rates.yml; run the first manual refresh, commit TB.CDN.90D.MID.json and SHA256SUMS, tighten label pattern if the live label differs (decision entry) | backend-dev (data via 10-git) | 2 |
 | 4 | generator.py (draw order, overrides, paths, strata manifest, book hash) + test_generator.py; commit book_sha256.json after review | backend-dev, tester | 1 |
 | 5 | pricing.py + test_pricing.py | backend-dev, tester | 2 |
 | 6 | schedule.py bullet and IO-then-straight-line + fee/moic helpers + F2/F3 recompute tests | backend-dev, tester | none (fixtures F2/F3 exist) |
