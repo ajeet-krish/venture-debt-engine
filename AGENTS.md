@@ -36,8 +36,8 @@
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 0 | Repo bootstrap | Complete |
-| 1 | Domain model and golden fixtures | In Progress |
-| 2 | Generator, rates, pricing, schedules, sizing | Pending |
+| 1 | Domain model and golden fixtures | Complete |
+| 2 | Generator, rates, pricing, schedules, sizing | In Progress |
 | 3 | Structures, returns, comparison, site shell | Pending |
 | 4 | Covenants, scenarios, dashboard, methods | Pending |
 | 5 | Full verify gate, CI, case study, README | Pending |

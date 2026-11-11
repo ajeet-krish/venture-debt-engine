@@ -1,6 +1,6 @@
 # Venture Debt Engine Reviews
 
-Last updated: 2026-11-10
+Last updated: 2026-11-11
 
 ## 2026-11-10 - Phase 1: Code review
 
@@ -73,3 +73,83 @@ Recurring patterns for other agents:
 - Do not leave deliverables uncommitted; the verify culture treats the git
   record as evidence.
 - Missing-file SKIP semantics will be tightened; write code that fails closed.
+## 2026-11-11 - Phase 1: Re-review
+
+Verdict: PASS
+
+Scope: verification of the five findings from the 2026-11-10 Phase 1 review
+(one BLOCKER, one MEDIUM, three LOW), plus the standing green state. All five
+are resolved.
+
+Per-item results:
+
+1. Fixture-first commit ordering (was BLOCKER): PASS. git log shows
+   757fb17 (bootstrap) then 3aca8cd ("test: hand-computed golden fixtures
+   F1 to F6 with arithmetic") containing exactly the six
+   pipeline/fixtures/golden JSON files, then 25f9770 ("feat: phase 1 domain
+   model, verify skeleton, and test suite") containing the 28 engine, verify
+   skeleton, tests, config, and docs files. docs/decisions.md:109-113 carries
+   the "Fixture-first commit ordering reconstructed" entry; its integrity
+   rationale is accurate (expected values hand-computed from the spec formulas
+   with standalone scratch scripts deleted after use and never derived from
+   engine output; the F1b engine cross-check ran only after the values were
+   fixed) and it honestly records the authoring overlap as an accepted
+   deviation.
+
+2. Missing fixture fails the gate (was MEDIUM): PASS. fixture_runner.py:231-232
+   reports "missing fixture: <path>" as an error, FixtureReport.status() is
+   FAIL on any error (fixture_runner.py:80-82), and gate.py:94-101 exits 1.
+   Demonstrated live: renaming bridge_fixture.json produced "FAIL fixture
+   validation (5 validated, 0 skipped)", the line "missing fixture:
+   pipeline/fixtures/golden/bridge_fixture.json", GATE RESULT: FAIL, exit 1;
+   the restore returned the gate to GATE RESULT: PASS, exit 0, with the file
+   byte-identical and git status clean. test_verify.py:130-140
+   test_fixture_runner_fails_on_missing_files asserts the "missing fixture: "
+   error prefix and the failed report.
+
+3. External envelopes reject a stray free-text provenance key (was LOW): PASS.
+   snapshot.py:138-147: an external class (source plus source_timestamp) that
+   carries any provenance key raises ValueError quoting "external provenance
+   (source and source_timestamp) must not carry a stray free-text 'provenance'
+   key"; an external envelope whose provenance string also declares derived or
+   generated hits the multiple-classes error at snapshot.py:133-135.
+
+4. Tolerance values validated (was LOW): PASS. fixture_runner.py:145-159
+   requires each tolerance entry to be an object with exactly an "abs" key
+   holding a decimal string (NUMERIC_STRING_RE fullmatch) whose Decimal value
+   is strictly positive; fixture_runner.py:207-215 requires the tolerances
+   object with IRR-only keys. The module docstring states the rule
+   (fixture_runner.py:20-21).
+
+5. .DS_Store gitignored (was LOW): PASS. git check-ignore -v reports
+   .gitignore:17 matching both .DS_Store and pipeline/.DS_Store; git status
+   --short is empty.
+
+Standing green state (2026-11-11):
+- uv run pytest -q: 61 passed in 0.07s, exit 0.
+- uv run ruff check .: All checks passed, exit 0.
+- uv run python -m vdebt verify: GATE RESULT: PASS, exit 0. Dash scan 41 files
+  scanned, 0 violations, 0 unclassified, 2 skipped (.DS_Store not valid
+  UTF-8); import isolation PASS (static plus runtime at gate start and gate
+  end); fixture validation 6 validated, 0 skipped; SHA256 printed for all 6
+  fixtures.
+
+Findings (Severity | File:Line | Issue | Fix):
+
+| Severity | File:Line | Issue | Fix |
+|----------|-----------|-------|-----|
+| INFO | pipeline/tests/test_snapshot.py:97-109 | The external stray free-text provenance branch (snapshot.py:143-147) has no dedicated negative test | Add an assertion matching "stray free-text" to test_provenance_classes_exactly_one_with_companions |
+| INFO | pipeline/tests/test_verify.py:130-140 | Tolerance validation negative paths (fixture_runner.py:145-159) have no unit tests | Add negative tests for bad tolerance shape, non-decimal abs, and non-positive abs |
+
+Recurring patterns for other agents:
+- Fixtures are hand-computed and committed first; never regenerate them from
+  engine output.
+- The gate fails closed on missing fixture files; keep it that way.
+
+Verification checklist:
+- [x] All checks passed
+- [x] No critical issues found
+- [x] Code follows project conventions
+- [x] No em dashes, double hyphens, or dash equivalents; use proper punctuation
+- [x] Phase code integrates cleanly with prior phases
+
