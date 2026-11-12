@@ -23,7 +23,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const webRoot = resolve(scriptDir, "..", "..");
 const outDir = join(webRoot, "src", "charts");
 
-const scripts = ["cashflow-chart.js", "capacity-chart.js"];
+const scripts = ["cashflow-chart.js", "capacity-chart.js", "dashboard-charts.js"];
 
 mkdirSync(outDir, { recursive: true });
 

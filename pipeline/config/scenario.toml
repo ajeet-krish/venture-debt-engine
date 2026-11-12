@@ -9,6 +9,11 @@ runway_floor_months = "18.0"
 dscr_floor = "1.1500"
 bisection_max_iterations = 60
 
+[covenants]
+net_leverage_max = "3.0000"
+interest_cover_min = "2.0000"
+min_cash_floor_months = "6.0"
+
 [solver.irr]
 bracket_low = "-0.99"
 bracket_high = "10.00"
@@ -21,6 +26,7 @@ rate_shock_bp = 200
 [downside]
 burn_uplift_pct = "50.00"
 revenue_downlift_pct = "30.00"
+warrant_factor = "0.75"
 
 [warrant]
 valuation_factor = "0.15"
@@ -206,6 +212,9 @@ unit = "months"
 scale = 1
 band = "generator_cash_coverage_15_150_months_of_burn"
 citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
+
+[dashboard]
+capacity_bin_edges_usd = [0, 1000000000, 2500000000, 5000000000, 10000000000, 25000000000, 50000000000]
 
 [site]
 featured_borrower_id = "SYN-0005"

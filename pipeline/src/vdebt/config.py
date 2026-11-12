@@ -19,6 +19,14 @@ ids unique and within SYN-0001 to SYN-0024).
 The required [site] table pins the published site presentation: its
 featured_borrower_id must be a slot id in the same SYN-0001 to SYN-0024 book,
 validated with SLOT_ID_PATTERN.
+
+Phase 4 tables: the required [covenants] table pins the three covenant limits
+(net_leverage_max, interest_cover_min, min_cash_floor_months) as exact Decimal
+scalar keys with no citation (the publication layer attaches the stated
+assumption citation); the required [downside] table gains warrant_factor,
+validated to the open-closed interval (0, 1]; and the required [dashboard]
+table pins capacity_bin_edges_usd as a list of ints with at least 2 edges,
+first edge 0, strictly ascending.
 """
 
 import re
@@ -141,6 +149,48 @@ class SiteConfig:
 
 
 @dataclass(frozen=True)
+class CovenantsConfig:
+    """Covenant limit pins from the required [covenants] table (P4.1).
+
+    net_leverage_max is the maximum net leverage ratio, interest_cover_min the
+    minimum interest cover ratio, and min_cash_floor_months the minimum cash
+    floor in months of net burn. All three are plain scalar keys: no citation
+    travels here because the publication layer attaches the stated assumption
+    citation at build time.
+    """
+
+    net_leverage_max: Decimal
+    interest_cover_min: Decimal
+    min_cash_floor_months: Decimal
+
+
+@dataclass(frozen=True)
+class DownsideConfig:
+    """Configured downside shocks from the required [downside] table (P4.2).
+
+    burn_uplift_pct and revenue_downlift_pct keep their phase 1 meaning, and
+    warrant_factor is the pinned downside warrant revaluation factor in
+    (0, 1], so the revaluation can never zero out or amplify the factor.
+    """
+
+    burn_uplift_pct: Decimal
+    revenue_downlift_pct: Decimal
+    warrant_factor: Decimal
+
+
+@dataclass(frozen=True)
+class DashboardConfig:
+    """Dashboard publication settings from the required [dashboard] table (P4.6).
+
+    capacity_bin_edges holds the capacity_bin_edges_usd integer cent edges in
+    pinned order: at least 2 edges, first edge 0, strictly ascending, so the
+    capacity histogram bins are contiguous and never inverted.
+    """
+
+    capacity_bin_edges: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class ScenarioConfig:
     """Fully parsed, pinned scenario configuration."""
 
@@ -159,6 +209,9 @@ class ScenarioConfig:
     rates: RatesConfig
     generator: GeneratorConfig
     site: SiteConfig
+    covenants: CovenantsConfig
+    downside: DownsideConfig
+    dashboard: DashboardConfig
 
 
 def _reject_floats(node: object, where: str) -> None:
@@ -480,14 +533,115 @@ def _parse_site(raw: object) -> SiteConfig:
     return SiteConfig(featured_borrower_id=featured)
 
 
+def _parse_covenants(raw: object) -> CovenantsConfig:
+    """Parse the required [covenants] table into a frozen CovenantsConfig.
+
+    All three limits are required and converted with _to_decimal, so a quoted
+    decimal string or an int passes, a native float is already rejected by the
+    file-wide float ban, and a missing key raises ValueError from _require_key.
+    No range check runs here: the covenant module applies the limits and the
+    publication layer attaches the stated assumption citation.
+    """
+    where = "covenants"
+    table = _require_table(raw, where)
+    return CovenantsConfig(
+        net_leverage_max=_to_decimal(
+            _require_key(table, "net_leverage_max", where),
+            "covenants.net_leverage_max",
+        ),
+        interest_cover_min=_to_decimal(
+            _require_key(table, "interest_cover_min", where),
+            "covenants.interest_cover_min",
+        ),
+        min_cash_floor_months=_to_decimal(
+            _require_key(table, "min_cash_floor_months", where),
+            "covenants.min_cash_floor_months",
+        ),
+    )
+
+
+def _parse_downside(raw: object) -> DownsideConfig:
+    """Parse the required [downside] table into a frozen DownsideConfig.
+
+    warrant_factor is required and must lie in (0, 1]: a value of 0 would zero
+    the downside warrant and a value above 1 would amplify it, so either
+    raises ValueError with the offending value in the message. burn_uplift_pct
+    and revenue_downlift_pct are required decimals as in phase 1.
+    """
+    where = "downside"
+    table = _require_table(raw, where)
+    burn_uplift_pct = _to_decimal(
+        _require_key(table, "burn_uplift_pct", where), "downside.burn_uplift_pct"
+    )
+    revenue_downlift_pct = _to_decimal(
+        _require_key(table, "revenue_downlift_pct", where),
+        "downside.revenue_downlift_pct",
+    )
+    warrant_factor = _to_decimal(
+        _require_key(table, "warrant_factor", where), "downside.warrant_factor"
+    )
+    if not (Decimal(0) < warrant_factor <= Decimal(1)):
+        raise ValueError(
+            "downside.warrant_factor must be greater than 0 and at most 1, "
+            f"got {warrant_factor}"
+        )
+    return DownsideConfig(
+        burn_uplift_pct=burn_uplift_pct,
+        revenue_downlift_pct=revenue_downlift_pct,
+        warrant_factor=warrant_factor,
+    )
+
+
+def _parse_dashboard(raw: object) -> DashboardConfig:
+    """Parse the required [dashboard] table into a frozen DashboardConfig.
+
+    capacity_bin_edges_usd must be a list of ints with at least 2 edges, a
+    first edge of 0, and strictly ascending values, so the capacity histogram
+    bins are contiguous, non-empty, and never inverted. A missing key raises
+    ValueError from _require_key, a non-list or non-int edge raises TypeError
+    with the offending path, and a range violation raises ValueError naming
+    the bad edge.
+    """
+    where = "dashboard"
+    table = _require_table(raw, where)
+    edges_raw = _require_key(table, "capacity_bin_edges_usd", where)
+    edges_where = "dashboard.capacity_bin_edges_usd"
+    if not isinstance(edges_raw, list):
+        raise TypeError(
+            f"{edges_where} must be a list of ints, got {type(edges_raw).__name__}"
+        )
+    edges: list[int] = []
+    for index, value in enumerate(edges_raw):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(
+                f"{edges_where}[{index}] must be an int, "
+                f"got {type(value).__name__}"
+            )
+        edges.append(value)
+    if len(edges) < 2:
+        raise ValueError(f"{edges_where} needs at least 2 edges, got {len(edges)}")
+    if edges[0] != 0:
+        raise ValueError(f"{edges_where} first edge must be 0, got {edges[0]}")
+    for index in range(1, len(edges)):
+        if edges[index] <= edges[index - 1]:
+            raise ValueError(
+                f"{edges_where} must be strictly ascending, "
+                f"got {edges[index]} at index {index} "
+                f"after {edges[index - 1]} at index {index - 1}"
+            )
+    return DashboardConfig(capacity_bin_edges=tuple(edges))
+
+
 def load_scenario(path: Path) -> ScenarioConfig:
     """Load scenario.toml at path into a frozen ScenarioConfig.
 
     Raises ValueError on any native TOML float, on any band entry missing its
     citation or band key, on a weight table that does not sum to exactly 1, on
     a duplicate or out-of-range strata slot borrower id, on a label pattern
-    that does not compile, on a missing [site] table or an out-of-range
-    site.featured_borrower_id, and on any malformed or absent required key.
+    that does not compile, on a missing [site], [covenants], [downside], or
+    [dashboard] table, on an out-of-range site.featured_borrower_id or
+    downside.warrant_factor, on a malformed dashboard capacity bin edge list,
+    and on any malformed or absent required key.
     """
     if not isinstance(path, Path):
         raise TypeError(f"path must be a Path, got {type(path).__name__}")
@@ -505,19 +659,30 @@ def load_scenario(path: Path) -> ScenarioConfig:
     scenario_table = _require_table(
         _require_key(data, "scenario", "scenario"), "scenario"
     )
-    downside = _require_table(_require_key(data, "downside", "scenario"), "downside")
+    downside_table = _require_table(
+        _require_key(data, "downside", "scenario"), "downside"
+    )
     warrant = _require_table(_require_key(data, "warrant", "scenario"), "warrant")
     rates_table = _require_table(_require_key(data, "rates", "scenario"), "rates")
     generator_table = _require_table(
         _require_key(data, "generator", "scenario"), "generator"
     )
     bands_table = _require_table(_require_key(data, "bands", "scenario"), "bands")
+    covenants_table = _require_table(
+        _require_key(data, "covenants", "scenario"), "covenants"
+    )
+    dashboard_table = _require_table(
+        _require_key(data, "dashboard", "scenario"), "dashboard"
+    )
     site_table = _require_table(_require_key(data, "site", "scenario"), "site")
 
     bands = {name: _parse_band(name, raw) for name, raw in bands_table.items()}
     rates = _parse_rates(rates_table)
     generator = _parse_generator(generator_table)
     site = _parse_site(site_table)
+    covenants = _parse_covenants(covenants_table)
+    downside = _parse_downside(downside_table)
+    dashboard = _parse_dashboard(dashboard_table)
 
     solver = SolverParams(
         bracket_low=_to_decimal(
@@ -564,16 +729,13 @@ def load_scenario(path: Path) -> ScenarioConfig:
             _require_key(warrant, "valuation_factor", "warrant"),
             "warrant.valuation_factor",
         ),
-        downside_burn_uplift_pct=_to_decimal(
-            _require_key(downside, "burn_uplift_pct", "downside"),
-            "downside.burn_uplift_pct",
-        ),
-        downside_revenue_downlift_pct=_to_decimal(
-            _require_key(downside, "revenue_downlift_pct", "downside"),
-            "downside.revenue_downlift_pct",
-        ),
+        downside_burn_uplift_pct=downside.burn_uplift_pct,
+        downside_revenue_downlift_pct=downside.revenue_downlift_pct,
         solver=solver,
         rates=rates,
         generator=generator,
         site=site,
+        covenants=covenants,
+        downside=downside,
+        dashboard=dashboard,
     )

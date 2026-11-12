@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Venture Debt Engine: Dashboard</title>
+    <meta name="description" content="A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval." />
+    <meta name="theme-color" content="#16233b" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Venture Debt Engine" />
+    <meta property="og:title" content="Venture Debt Engine: Dashboard" />
+    <meta property="og:description" content="A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval." />
+    <meta property="og:image" content="https://ajeet-krish.github.io/venture-debt-engine/og.svg" />
+    <meta property="og:image:alt" content="Venture Debt Engine, venture debt sizing and lender returns" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="wordmark" href="./index.html">
+        <span class="monogram" aria-hidden="true">VDE</span>
+        <span class="wordmark-name">Venture Debt Engine</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <ul>
+          <li><a href="./index.html">Overview</a></li>
+          <li><a href="./sizing.html">Sizing</a></li>
+          <li><a href="./structures.html">Structures</a></li>
+          <li><a href="./returns.html">Returns</a></li>
+          <li><a href="./methods.html">Methods</a></li>
+          <li><a href="./verification.html">Verification</a></li>
+          <li><a href="./dashboard.html" aria-current="page">Dashboard</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main id="main">
+      <p class="eyebrow">Route: dashboard</p>
+      <h1>Book dashboard</h1>
+      <p class="lede">
+        How the committed borrower book distributes: capacity by band, which
+        constraint binds each sizing answer, and how many solves are infeasible.
+        Every number prints verbatim from the committed payload; the bars are
+        build time SVG geometry, never browser arithmetic.
+      </p>
+      <div data-asof></div>
+      <section aria-labelledby="summary-title">
+        <h2 id="summary-title">Committed book summary</h2>
+        <div data-dashboard-summary>
+          <div class="notice" role="note">
+            <p class="notice-head">Dashboard figures land with the payload block</p>
+            <p>
+              The committed book summary (meta.book_summary) has not landed in
+              book.json yet, so this page prints no dashboard number. The
+              capacity distribution, binding constraint mix, feasible and
+              infeasible counts render verbatim from that block when the phase 4
+              payload build publishes it.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="capacity-title">
+        <h2 id="capacity-title">Capacity distribution</h2>
+        <p class="section-copy">
+          One bar per published capacity bin over the committed book. The bin
+          edges and counts come from the committed payload; the pipeline did
+          the binning.
+        </p>
+        <div data-dashboard-capacity-chart>
+          <div class="chart-placeholder" role="note">
+            <p class="chart-placeholder-head">Chart asset absent</p>
+            <p>
+              The build time generated histogram for this section was not
+              produced, because the committed payload does not carry the
+              dashboard summary block yet. No chart renders here and no bar is
+              drawn in the browser.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="mix-title">
+        <h2 id="mix-title">Binding constraint mix</h2>
+        <p class="section-copy">
+          One bar per published binding constraint count over the committed
+          book, with the feasible and infeasible counts printed beside them.
+        </p>
+        <div data-dashboard-mix-chart>
+          <div class="chart-placeholder" role="note">
+            <p class="chart-placeholder-head">Chart asset absent</p>
+            <p>
+              The build time generated mix chart for this section was not
+              produced, because the committed payload does not carry the
+              dashboard summary block yet. No chart renders here and no bar is
+              drawn in the browser.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div data-framing>
+          <p class="framing">A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval.</p>
+        </div>
+        <div data-footer></div>
+      </div>
+    </footer>
+    <script type="module" src="/src/routes/dashboard.ts"></script>
+  </body>
+</html>

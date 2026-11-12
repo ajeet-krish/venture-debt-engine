@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "prebuild": "node scripts/sync-payloads.js && node scripts/charts/generate.js",
-    "dev": "node scripts/sync-payloads.js && node scripts/charts/generate.js && vite",
-    "build": "node scripts/sync-payloads.js && node scripts/charts/generate.js && tsc --noEmit && vite build"
+    "prebuild": "node scripts/sync-payloads.js && node scripts/build-methods.js && node scripts/charts/generate.js",
+    "dev": "node scripts/sync-payloads.js && node scripts/build-methods.js && node scripts/charts/generate.js && vite",
+    "build": "node scripts/sync-payloads.js && node scripts/build-methods.js && node scripts/charts/generate.js && tsc --noEmit && vite build"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -813,6 +813,91 @@ h3 {
   line-height: var(--leading-body);
 }
 
+/* Compiled methods document: docs/methods.md rendered at build time */
+.methods-prose {
+  margin-top: var(--space-6);
+}
+
+.methods-prose h1,
+.methods-prose h2,
+.methods-prose h3,
+.methods-prose p,
+.methods-prose ul,
+.methods-prose ol {
+  max-width: 46rem;
+}
+
+.methods-prose h1 {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: var(--text-2xl);
+}
+
+.methods-prose h2 {
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 3px double var(--ink);
+}
+
+.methods-prose p {
+  margin: 0 0 var(--space-4);
+}
+
+.methods-prose ul,
+.methods-prose ol {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-5);
+}
+
+.methods-prose li {
+  margin-bottom: var(--space-2);
+}
+
+.methods-prose ol li::marker {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ledger-green);
+}
+
+.methods-prose ul li::marker {
+  color: var(--ledger-green);
+}
+
+.methods-prose code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--wash);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.methods-prose pre {
+  max-width: 100%;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  overflow-x: auto;
+  background: var(--wash);
+  border-left: 4px solid var(--ink);
+}
+
+.methods-prose pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-sm);
+}
+
+.methods-prose hr {
+  margin: var(--space-6) 0;
+  border: 0;
+  border-top: 3px double var(--ink);
+}
+
+.methods-prose .table-scroll {
+  max-width: 100%;
+  margin-bottom: var(--space-5);
+}
+
 /* Wider ledger grid from 640px up */
 @media (min-width: 40em) {
   main {

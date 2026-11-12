@@ -69,6 +69,22 @@ SITE_BLOCK = (
     'featured_borrower_id = "SYN-0001"\n'
 )
 
+# The required phase 4 tables for minimal scenarios: the covenant limit pins,
+# the downside warrant factor, and the dashboard capacity bin edges.
+COVENANTS_BLOCK = (
+    "[covenants]\n"
+    'net_leverage_max = "3.0000"\n'
+    'interest_cover_min = "2.0000"\n'
+    'min_cash_floor_months = "6.0"\n'
+)
+
+DASHBOARD_BLOCK = (
+    "[dashboard]\n"
+    "capacity_bin_edges_usd = "
+    "[0, 1000000000, 2500000000, 5000000000, 10000000000, 25000000000, "
+    "50000000000]\n"
+)
+
 
 def _minimal_scenario(
     band_lines: list[str],
@@ -99,6 +115,7 @@ def _minimal_scenario(
         "[downside]",
         'burn_uplift_pct = "50.00"',
         'revenue_downlift_pct = "30.00"',
+        'warrant_factor = "0.75"',
         "",
         "[warrant]",
         'valuation_factor = "0.15"',
@@ -106,7 +123,16 @@ def _minimal_scenario(
         "[bands.example]",
     ]
     lines.extend(band_lines)
-    return "\n".join(lines) + "\n" + rates_block + "\n" + generator_block + SITE_BLOCK
+    return (
+        "\n".join(lines)
+        + "\n"
+        + rates_block
+        + "\n"
+        + generator_block
+        + COVENANTS_BLOCK
+        + DASHBOARD_BLOCK
+        + SITE_BLOCK
+    )
 
 
 def test_pinned_top_level_values():

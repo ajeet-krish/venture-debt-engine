@@ -10,6 +10,7 @@ const routeNames = [
   "returns",
   "methods",
   "verification",
+  "dashboard",
 ] as const;
 
 const input: Record<string, string> = {};

@@ -29,6 +29,7 @@
           <li><a href="./returns.html">Returns</a></li>
           <li><a href="./methods.html" aria-current="page">Methods</a></li>
           <li><a href="./verification.html">Verification</a></li>
+          <li><a href="./dashboard.html">Dashboard</a></li>
         </ul>
       </nav>
     </header>
@@ -39,14 +40,16 @@
         What are the conventions and what is illustrative: every rule of thumb,
         citation, rounding convention, and stated limitation behind the numbers.
       </p>
-      <div class="notice" role="note">
-        <p class="notice-head"><span class="chip chip-pending">Later phase</span></p>
-        <p>
-          This page ships in a later phase. It will walk through each sizing,
-          pricing, schedule, and returns convention with its citation and access
-          date, and separate committed facts from illustrative assumptions. Nothing
-          is quoted here until then.
-        </p>
+      <div data-methods class="methods-prose">
+        <div class="notice" role="note">
+          <p class="notice-head">Text compiles at build time</p>
+          <p>
+            This page renders the pre-compiled contents of docs/methods.md,
+            which the site build compiles before bundling. With JavaScript
+            disabled the compiled text does not appear here; the canonical
+            document lives at docs/methods.md in this repository.
+          </p>
+        </div>
       </div>
     </main>
     <footer class="site-footer">
