@@ -1288,3 +1288,248 @@ Each slice is one sitting. Slices 2 and 6 are independent and can run in
 parallel; everything else is strictly ordered. Fixtures F1 to F6 are never
 regenerated; the book hash fixture (slice 4) is the single engine-derived
 committed value and carries its own decision record.
+
+## Phase 3 design
+
+Appended 2026-11-11 (phase 3 of 6). Sections 1 to 15 and the Phase 2 design above are binding and unchanged. This section pins the RBF-with-cap and bridge schedule branches, the returns analytics (dated lender cash flows, IRR, MOIC, fee and warrant treatment), the fixed-factor warrant model, the structure comparison table, the payload extensions, the web site shell, the phase 3 test plan, and the ordered task slices. Covenants, downside and rate-shock payload publication, the book dashboard, and the methods and returns pages are phase 4; the full verify gate and CI blocking gates are phase 5. Fixtures F1 to F6 are never regenerated.
+
+### P3.0 Component map and data flow
+
+| Component | Responsibility | File |
+|-----------|---------------|------|
+| RBF schedule branch | cap, remittance rows, shortfall residual | pipeline/src/vdebt/schedule.py |
+| Bridge schedule branch | simple interest ACT/365, single repayment at maturity | pipeline/src/vdebt/schedule.py |
+| Returns analytics | warrant value, dated lender cash flows, IRR bisection, MOIC | pipeline/src/vdebt/returns.py |
+| Structure comparison | three rows on identical borrower inputs | pipeline/src/vdebt/compare.py |
+| Payload assembly | schedule kinds, returns blocks, comparison.json | pipeline/src/vdebt/build.py |
+| Site shell | index, sizing, structures, placeholders, charts | web/ |
+
+Data flow additions to section 4: the generator revenue path and the sized facility feed the structure schedules (RBF consumes the per-period revenue path, bridge consumes the pinned tenor and the priced all-in rate); the schedules plus the fee and warrant inputs feed returns.py, which emits dated cash flows, IRR, MOIC, and warrant value; compare.py builds three schedules per borrower at the canonical facility and emits one comparison table per borrower; build.py writes book.json (now with returns blocks and real RBF and bridge schedules) and comparison.json; web/scripts/sync-payloads.mjs copies both payload files plus build_meta.json byte for byte into web/src/data at site build time; the site validates shape and formats values only. No path dead-ends: every published figure traces to a committed input (seed, bands, committed rate snapshot) or a fixture.
+
+### P3.1 RBF schedule branch (fixture F4)
+
+Mechanics, matching fixture F4 arithmetic steps exactly:
+- Inputs: advance_cents, close, horizon (periods), remittance_rate_pct (5.00 from [generator] rbf_remittance_rate_pct), cap_multiple (the drawn rbf_cap, band 1.3 to 2.5), and the per-period revenue path in integer cents.
+- cap_cents = quantize(cap_multiple x advance_cents, 0) once, ROUND_HALF_UP in MONEY_CONTEXT (F4 step 2: 1.50 x 60,000,000 = 90,000,000).
+- Payment dates: dates.payment_dates(close, horizon), monthly from close, roll forward only (F4 steps 3 to 8).
+- Per period t: nominal_t = quantize(remittance_rate_pct / 100 x revenue_t, 0) once (F4 step 9 basis); residual_before = cap_cents minus cumulative_{t-1}; remittance_t = min(nominal_t, residual_before); cumulative_t = cumulative_{t-1} + remittance_t.
+- Stop rule: the row list ends at the first period whose cumulative reaches cap_cents (that period's row is included, its remittance is the exact residual when nominal exceeds it); after the cap there are no rows, because remittances stop at the cap (F4 step 13). When the horizon ends first, rows span the full horizon.
+- Revenue feed: build_rbf_schedule takes revenue_cents as a parameter tuple, so fixtures feed their own arrays and build.py feeds borrower.revenue_path (which spans rbf_horizon_periods = 24 from the generator). Pre-revenue borrowers feed all-zero revenue: every remittance is a real 0 cents and the schedule ends in shortfall, never a fabricated number.
+- Status: "feasible" when cumulative reaches the cap inside the horizon (F4a: final cumulative equals cap, residual 0); "shortfall" when the horizon ends first, with residual_cents = cap_cents minus final_cumulative_cents published both as the residual companion of the status envelope (section 6.4 matrix) and as a standalone residual leaf (F4 step 19).
+- Row model extension: a separate RbfRow dataclass (period, payment_date, revenue_cents, remittance_cents, cumulative_cents) and RbfSchedule (advance, cap, rate, cap multiple, horizon, rows, final_cumulative_cents, residual_cents, status). The amortizing ScheduleRow is untouched and RBF rows carry NO interest, principal, or balance keys: F4 carries no interest term, so emitting fabricated zero interest and principal would violate the not_applicable principle. Rejected alternative: one union row model with optional fields, because optional money fields invite consumers to read absent as zero.
+- Build assertions: dates strictly increasing; 0 <= remittance_t <= residual_before; cumulative never exceeds cap; if cumulative equals cap that row is last; sum of remittances equals final_cumulative exactly (integer sum of quantized rows, no further rounding).
+- F4 recompute: test_schedule.py loads schedule_rbf.json and rebuilds both cases from engine code (advance 60,000,000, close 2026-05-01, rate "5.00", cap multiple "1.50", per-case horizon and revenue arrays), matching payment_dates, per-period rows, final_cumulative, residual, status plus the shortfall residual companion, and the warrant not_granted block by exact string or int equality.
+- Strata predicate migration (pinned by P2.2 for phase 3): rbf_shortfall becomes structure == rbf_capped and build_rbf_schedule on the sized advance (the sized facility stays the disclosed advance proxy) returns status "shortfall". Membership counts may move from the phase 2 proxy (which counted 6); the build still fails on any zero count and the manifest republishes counts and sorted members. Decision entry recorded.
+- Fixture scope note: F4 carries no fee and no warrant, so its expected surface has no fee or interest fields. That is fixture scope only; see P3.3 for the drawn closing fee and warrant in RBF lender cash flows.
+
+### P3.2 Bridge branch (fixture F5)
+
+- Tenor is pinned at 3 months ([generator] bridge_tenor_months = 3, decisions entry "Derived term parameters"); the build asserts borrower.term_months equals the pinned tenor for bridge borrowers. Fixture F5 tenor is 3.0 months, scale 1.
+- maturity_date = roll_forward(add_months(close, tenor_months)) (F5 step 1: 2026-02-27 plus 3 months is 2026-05-27, Wednesday, unchanged).
+- Simple interest ACT/365 on the whole span: interest = quantize(all_in_rate / 100 x facility_cents x year_fraction_act365(close, maturity), 0) once (F5 step 3: 12.0000 percent over 89 days gives 1,463,013.698... cents, quantized once to 1,463,014).
+- Single repayment at maturity: principal = facility_cents paid with the accrued interest in one payment; total_repayment = interest + principal (exact integer sum, 51,463,014 in F5).
+- Row model extension: NONE. build_bridge_schedule returns the existing Schedule and ScheduleRow types with exactly one row (period 1, payment_date maturity, opening facility, interest as above, principal facility, closing 0). The formula is algebraically one period of the amortizing accrual on the opening balance, so the shared interest helper applies unchanged. Rejected: a bespoke bridge row type, which would duplicate the amortizing shape for no gain.
+- build_schedule keeps its phase 2 signature and its NotImplementedError for "rbf_capped" and "bridge", with the message pointing at build_rbf_schedule and build_bridge_schedule; the phase 2 test asserting that behavior is updated to the new message rather than deleted.
+- F5 recompute: test_schedule.py rebuilds the bridge from fixture inputs (facility 50,000,000, close 2026-02-27, tenor 3, all_in_rate "12.0000", fee "2.00", coverage "0.00") and matches maturity_date, interest, total_repayment (integer sum of engine row values), closing_fee via closing_fee_cents (1,000,000), moic 1.03 via schedule.moic, and the warrant not_granted block, to the cent.
+
+### P3.3 Returns analytics (pipeline/src/vdebt/returns.py)
+
+returns.py is pure computation (dataclasses in, dataclasses out); all envelope assembly stays in build.py, the single envelope owner from phase 2.
+
+```python
+@dataclass(frozen=True)
+class DatedCashFlow:
+    flow_date: date
+    amount_cents: int          # signed integer cents
+
+@dataclass(frozen=True)
+class IRRResult:
+    status: str                # "feasible" | "no_solution"
+    irr_percent: Decimal | None   # percent_annual scale 4 when published
+    reason: str | None
+    iterations: int
+
+def warrant_value_cents(coverage_pct: Decimal, facility_cents: int,
+                        valuation_factor: Decimal) -> int
+def lender_cash_flows(schedule: Schedule | RbfSchedule,
+                      closing_fee_cents: int,
+                      warrant_cents: int,
+                      warrant_date: date) -> tuple[DatedCashFlow, ...]
+def npv(cash_flows: tuple[DatedCashFlow, ...], close: date, rate: Decimal) -> Decimal
+def solve_irr(cash_flows: tuple[DatedCashFlow, ...], close: date,
+              params: SolverParams) -> IRRResult
+def moic(receipts_cents: int, warrant_value_cents: int, funded_cents: int) -> Decimal
+def irr_delta_bp(base_percent: Decimal, shocked_percent: Decimal) -> Decimal
+def sensitivity_per_100bp(delta_bp: Decimal, shock_bp: Decimal) -> Decimal
+```
+
+IRR, exactly the section 13 pins (XIRR-style: dated flows, ACT/365 year fractions from close):
+- Solve r in sum_i CF_i x (1 + r) raised to power (-yf_i) = 0, yf_i = year_fraction_act365(close, flow_date_i). The power is computed in MONEY_CONTEXT; section 15 already records that sign-only bisection absorbs Decimal power noise near the root.
+- Decimal bisection on r with bracket [-0.99, 10.00] from [solver.irr] (bracket_low, bracket_high), midpoint (lo + hi) / 2 in MONEY_CONTEXT, sign-based decisions only; terminate when hi minus lo is below tolerance_decimal ("0.000001"); max_iterations 200, exceeding raises SolverError, never a silent fallback.
+- no_solution: when NPV(lo) and NPV(hi) share a sign there is no root in the bracket (for example an all-positive flow set, or an RBF shortfall borrower with no warrant whose only flow is the close outflow). The payload publishes status "no_solution" with the reason companion and no IRR value. A degenerate all-zero flow set also returns no_solution with its own reason.
+- Published IRR: r x 100 quantized exactly once to percent_annual scale 4, ROUND_HALF_UP (F6 step 27 basis).
+
+Dated lender cash flows per structure (aggregated per date, ascending; F6 step 25 basis, where the final date carries interest + principal + warrant as one flow):
+- close (all four structures): closing_fee_cents minus facility_cents (fee received at funding, spec section 5 fees row and the decisions log entry "Lender cash flows include a closing fee band"; F6 step 23: 1,000,000 minus 100,000,000 = -99,000,000).
+- bullet and io_then_straight_line: one receipt per payment date of interest + principal from the schedule rows.
+- rbf_capped: one receipt per remittance date of remittance_cents; warrant value dated at the final row's payment date (the cap-hit date or the horizon end).
+- bridge: one receipt at maturity of interest + principal (total_repayment); warrant value dated at maturity.
+
+MOIC, spec section 5 read literally plus one pinned extension:
+- numerator = total schedule receipts + warrant value, where receipts are interest + principal for bullet, io_then_straight_line, and bridge, and total remittances for rbf_capped (a royalty structure has no interest and principal split; the whole remittance is the lender's receipt). F4 carries no moic field, so this reading is engine-disclosed, cross-checked by closed form in tests, and stated on the methods page in phase 4.
+- denominator = gross facility (advance) in cents, never net of fee (decisions entry "MOIC numerator excludes closing fee"); quantized once to multiple scale 2, ROUND_HALF_UP.
+- schedule.moic stays as the F2 to F5 fixture surface and returns.moic is the general receipts-based form; a test asserts both agree on the F2 inputs (identical formula, duplicated three lines; moving moic would churn the phase 2 surface and create a schedule to returns import cycle, since returns consumes Schedule).
+
+Fee treatment: the closing fee enters IRR cash flows at close only and is excluded from the MOIC numerator (phase 1 decision, unchanged). For RBF borrowers the drawn closing fee still enters the close cash flow even though fixture F4's schedule surface carries no fee field (fixture scope versus returns scope, P3.1).
+
+F6 readiness (payload publication is phase 4, computation is phase 3): returns.py exposes everything F6 needs now. The shocked schedule is build_schedule at the shocked all_in_rate (F6: base "8.0000", shocked "9.0000"); solve_irr runs on base and shocked flow sets; irr_delta_bp = (shocked_percent minus base_percent) x 100 quantized once to bp scale 1 (F6 step 31: 111.8); sensitivity_per_100bp = delta_bp / (shock_bp / 100) quantized once to bp scale 1 (F6 step 32: 55.9 at a 200 bp shock). Phase 3 tests recompute F6 end to end from engine code with the fixture's own pinned rates and flows; the build publishes the shocked and sensitivity block in phase 4 beside the downside scenario.
+
+### P3.4 Warrant model (fixed factor)
+
+- Formula (section 13 pin, stated assumption never a market quote): warrant_value_cents = to_cents(coverage_pct / 100 x facility_cents x cfg.warrant.valuation_factor), with the product taken in MONEY_CONTEXT and quantized exactly once at the to_cents boundary, ROUND_HALF_UP. F6 step 24: 0.02 x 100,000,000 x 0.15 = 300,000.0000 becomes 300,000 cents. valuation_factor is "0.15" from [warrant].
+- Dating: cfg.warrant.placement is "final_payment_date": the final period's payment date for term structures, maturity for bridge, the final remittance row's date for RBF (cap-hit or horizon end).
+- Zero coverage: value 0 published with the "status": "not_granted" companion on the value leaf, never a missing field (section 6.4). The leaf shape is deliberately asymmetric and fixture-pinned: a not_granted leaf is {"value", "unit", "scale", "status": "not_granted"} (F4 and F5 shape) and a granted leaf carries no status key (F6 warrant_value shape). This asymmetry is the fixture contract; do not "clean it up".
+- Location: returns.py (warrant value is a returns quantity consumed by cash flows and MOIC). Provenance string names the fixed factor model and the stated-assumption label; every site surface that renders a warrant value prints the assumption label (spec section 5).
+- Downside: phase 4 only. Spec 10.5 downside transmission moves the warrant value under downside; phase 3 computes and publishes base only, and returns.py takes valuation as an explicit parameter so phase 4 passes the downscaled factor without reshaping the interface.
+
+### P3.5 Structure comparison table (pipeline/src/vdebt/compare.py)
+
+- Three rows per spec 10.6: "bridge", "io_then_straight_line", "rbf_capped" (the spec pins these three; the drawn bullet structure is not a comparison row). compare.py returns plain dataclasses; build.py assembles the comparison.json envelopes, keeping one envelope owner.
+- Identical borrower inputs: all rows share the same borrower inputs, close date, base rate snapshot (source and source_timestamp), spread and all-in rate, facility amount, closing fee, and warrant coverage. The table document carries one shared block; test_compare asserts byte-identical borrower inputs and identical rate source and source_timestamp across the three rows (spec 10.6 acceptance).
+- Facility column: repeats the canonical sized facility in all three rows. Sizing is canonical (one capacity per borrower, computed on the io-then-straight-line serviceability schedule per the phase 2 decision), so the facility is NOT re-sized per structure. This is stated explicitly on the table and the structures page as the disclosed serviceability proxy: the facility is the borrower's serviceable capacity and the structures differ in schedule and returns at that capacity. Disclosed on the methods page in phase 4.
+- Columns, spec 10.6 order plus one disclosed extension: structure, facility amount, all-in rate, term, IO months, total interest, closing fee, lender IRR, MOIC, min DSCR, binding constraint, first-breach month under downside, warrant coverage, citations, and total receipts. The extension is required for legibility at zero browser arithmetic: the RBF row's contractual interest is 0, so its return would otherwise be invisible in the pinned columns.
+- Per-structure cell semantics:
+  - bridge: term 3 months (pinned tenor); IO months not_applicable with reason "bridge carries no interest-only period, single repayment at maturity"; total interest = bridge interest; min DSCR = CFADS at the maturity period divided by total_repayment (the only period with debt service; zero-service periods are excluded from the minimum); IRR and MOIC from returns on the bridge flows.
+  - io_then_straight_line: term = io + 36; IO months = borrower io_months; total interest from the canonical schedule; min DSCR equals the sizing min_dscr (same schedule basis, so the row ties back to the sizing answer).
+  - rbf_capped: term 24 months (pinned horizon); IO months not_applicable with reason "RBF remittances begin in period 1, no interest-only period"; total interest = 0 cents with provenance "derived: RBF carries no interest term" (a contractual zero, not a missing metric) and total receipts = final cumulative remittances; min DSCR = CFADS / remittance over periods with positive remittance, not_applicable with reason when no period has positive remittance (pre-revenue rows); IRR and MOIC from returns on the RBF flows.
+  - all rows: closing fee and warrant coverage identical (same borrower draws); binding_constraint populated in all three rows repeating the sizing result (capacity is a property of the borrower, not the structure; disclosed). first_breach_month is a status leaf "not_applicable" with reason "covenant engine lands in phase 4"; phase 4 replaces the leaf in place so the column shape never moves.
+- Citations: every band-sourced cell carries citation (with access date) and band per the section 6.4 matrix. Each row carries the set of bands it uses (facility sizing, pricing, closing fee, warrant coverage; the IO row adds interest_only; the RBF row adds rbf_cap), and the structures page prints each citation beside its value (spec section 2 rule 2).
+- Consistency test: for each borrower, the row matching the borrower's drawn structure must equal the book schedule totals (the comparison rebuilds all three schedules from scratch at the canonical facility).
+- Featured borrower: [site] featured_borrower_id = "SYN-0005" (new scenario.toml table, plain string). Rationale: SYN-0005 is the strata slot pinned to be feasible and DSCR-bound by construction at any base-rate level (the slot recipe was margin-chosen so rate drift cannot flip the stratum), it carries a live revenue path so all three structures show non-degenerate debt service and a non-trivial RBF cap path, and the DSCR-bound story is the credit question the target roles interview on. All 24 tables are computed and published; the site features SYN-0005 by default and the borrower selector exposes all 24. The choice is a reviewed config value, not a code constant, so it moves with a decisions entry if ever changed.
+- Infeasible borrowers: the three rows still exist with a uniform shape; facility and returns cells publish status leaves (not_applicable, reason "sizing infeasible so no facility exists to fund") and never fabricated zeros.
+
+### P3.6 Payloads
+
+book.json extensions (canonical rules of section 6.4 unchanged: floats banned, fixed-scale strings, keys sorted, LF, trailing newline, no wall clock):
+
+- The schedule block becomes a kind-tagged union (the phase 2 not_applicable placeholder reason for rbf_capped and bridge is retired; the infeasible-schedule reason remains):
+
+```text
+"schedule": { "kind": "amortizing", "rows": [ period, payment_date, opening_balance,
+              interest, principal, closing_balance ] }
+          | { "kind": "rbf", "rows": [ period, payment_date, revenue, remittance,
+              cumulative ], "cap", "final_cumulative", "residual",
+              "status": <envelope feasible | shortfall with residual companion> }
+          | { "status": <not_applicable envelope>, "reason": <infeasible sizing reason> }
+```
+
+- Each borrower gains a returns block (base scenario only in phase 3):
+
+```text
+"returns": { "status": <envelope feasible | not_applicable with reason>,
+  "lender_irr": { "status": <envelope feasible | no_solution>, "value": <percent_annual
+                  scale 4 envelope, iff feasible>, "reason": <str, iff no_solution> },
+  "moic": <multiple scale 2 envelope>,
+  "total_receipts": <usd_minor_units envelope>,
+  "closing_fee": <usd_minor_units envelope>,
+  "warrant": <usd_minor_units leaf, "status": "not_granted" companion iff zero coverage>,
+  "cash_flows": [ { "date": <date envelope>, "cash_flow": <signed usd_minor_units
+                    envelope> }, ... ] }
+```
+
+- Status enums: "no_solution" (IRR, reason companion) and "shortfall" (RBF schedule, residual companion) are already in the section 6.4 Status enum and companion matrix; no enum change. Infeasible borrowers publish returns status not_applicable with reason and no cash-flow or value keys.
+- The cash-flow list is published per borrower so the verify gate can recompute IRR straight from the published flows and the site can chart them with zero arithmetic. Size cost is bounded by the longest schedule (about 55 dated flows per borrower); acceptable at 24 borrowers.
+
+comparison.json, a NEW canonical file at payloads/<asof>/comparison.json written through snapshot.write_payload in the same build. Recommendation: separate file, not a key inside book.json. Justification: book.json keeps its pinned phase 2 meta plus rates plus borrowers shape, so the phase 2 byte-identity and book-hash surfaces stay untouched; the comparison is a cross-borrower derived document that would be an orphan key outside the pinned book shape; the site structures route loads comparison.json only; and the phase 2 "one aggregate file" rationale targeted per-borrower fragmentation and metadata orphans, which one additional aggregate document with its own meta block does not create. Trade-off: a second file in the two-build byte-identity diff (trivial: the diff covers the whole payloads tree) and one more write_payload call.
+
+```text
+{ "meta": { "asof", "book_sha256": <same envelope as book meta>,
+            "featured_borrower_id": "SYN-0005" },
+  "tables": [ { "borrower_id",
+                "shared": { close, base_rate (source + source_timestamp), all_in_rate,
+                            facility, closing_fee, warrant_coverage },
+                "rows": [ <three StructureComparison rows as envelopes,
+                           including first_breach_month placeholder> ] }, ... ] }
+```
+
+meta.book_sha256 binds the comparison to the same generator document as book.json; a test asserts the two meta values match. All 24 tables are published (sorted by borrower_id), featured_borrower_id is a plain string echoed from scenario.toml [site].
+
+### P3.7 Site shell (web/)
+
+Toolchain affirmation (not reopening the phase 1 decision): Vite with vanilla TypeScript, no framework. The zero-arithmetic rule is provable with a few hundred lines of formatting-only TypeScript; a framework ships runtime code that must be audited for arithmetic and adds dependency churn; a static multi-page output deploys to GitHub Pages with no router or base-path tricks. This is recorded as an affirmation with rationale, not a challenge.
+
+Layout:
+
+```text
+web/
+  package.json  package-lock.json  tsconfig.json  vite.config.ts
+  index.html  sizing.html  structures.html  returns.html  methods.html
+  verification.html
+  scripts/sync-payloads.mjs      byte copy of payloads into web/src/data/
+  scripts/charts/                build-time SVG generators (Node, never shipped)
+    capacity-chart.mjs  cashflow-chart.mjs
+  src/
+    routes/                      one module per page
+    lib/payload.ts               types plus shape validation (throws on drift)
+    lib/format.ts                display formatting only
+    components/framing.ts  footer.ts  selector.ts  rationale.ts
+    content/rationale.ts         illustrative structuring notes with citations
+    data/                        generated by sync-payloads.mjs, git ignored
+    charts/                      generated SVG, git ignored
+    styles/main.css
+  public/og.png                  Open Graph placeholder
+```
+
+- Routes: Vite multi-page build, one HTML entry per route (no client router). Phase 3 ships index, sizing, and structures live; returns, methods, and verification render as honest placeholders (framing line plus "this page ships in a later phase"); dashboard and case study arrive in phases 4 and 5.
+- Payload loading (recommendation: copy at build, not runtime fetch and not a Vite alias): npm prebuild runs web/scripts/sync-payloads.mjs, which copies payloads/<asof>/book.json, payloads/<asof>/comparison.json, and payloads/build_meta.json byte for byte (no parsing, no transformation) into web/src/data/ (git ignored). Route modules then use static TypeScript JSON imports, which Vite bundles at build time. This keeps import specifiers stable across asof changes, keeps the committed payload the single source of truth, and reduces the zero-arithmetic claim to "the browser formats and displays envelope values". Rejected: direct import of ../payloads/<date>/book.json (the dated directory makes the specifier environment dependent) and runtime fetch (banned by spec section 6).
+- Zero-arithmetic boundary, pinned definition: format only means digit grouping, decimal-point placement per the unit's scale (cents to display dollars is point placement, not computation), suffixes, and date rendering. It excludes every sum, ratio, difference, interpolation, and threshold comparison in shipped browser code. lib/payload.ts validates shape (unit, scale, status companions) at load; lib/format.ts only renders. Any number the site shows must appear verbatim in a committed payload.
+- Borrower selector: components/selector.ts renders a select over the committed borrower ids from book.json; changing it swaps which committed record or comparison table the page displays (client-side filter per spec section 12), with SYN-0005 as the default featured borrower. No recomputation of any kind.
+- Static charts (recommendation: build-time SVG generation): scripts/charts/*.mjs read web/src/data/*.json and emit byte-stable SVG into web/src/charts/, imported as static assets. All chart geometry (scaling values to pixels) runs in the Node build script, never in the browser, so the zero-arithmetic boundary is auditable by inspection of the shipped bundle. Rejected: browser-side SVG generation (scaling arithmetic would ship to the client) and pre-rendered SVG committed under payloads/ (derived artifacts inside the canonical payload tree invite drift and pollute the byte-identity surface). Chart code lives in web/scripts/charts/ and is imported by no route module. Phase 3 charts (cut-line: charts compress first if time runs long): (1) structures page cumulative lender receipts path for the featured borrower, three series straight from the published cash-flow lists; (2) sizing page facility versus band cap bar for the featured borrower.
+- Framing line: components/framing.ts renders the section 4 line verbatim on every page: "A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval." Plus the section 2 rule 3 label "illustrative sizing, not credit approval" wherever sizing output renders.
+- Footer: components/footer.ts stamps the snapshot date (asof from the payload rates block) and the commit SHA from build_meta.json (copied at build). The checks-passed stamp ships with the verification page in phase 5: the footer never displays an unverified claim.
+- Phone-readable: mobile-first CSS in styles/main.css, no CSS framework; single column below 640px; the comparison table scrolls horizontally with a sticky structure column (one DOM, no transposition logic). The index answers with links to the five spec section 12 tasks.
+- Open Graph: public/og.png placeholder (1200 by 630) carrying the product name and subtitle; head tags carry og:title, og:description (the framing line), and og:image. The real image lands with the phase 5 screenshots.
+- asof deep link: phase 3 ships one asof; route code parses the spec section 12 parameter ?asof=YYYY-MM-DD and validates it against the committed asof (single-day behavior, honest), reserving multi-day switching for whenever more than one asof directory is committed.
+- Site build and deploy: npm run build = sync-payloads, then tsc with the noEmit type check, then vite build to static dist/ with the GitHub Pages base path set in vite.config.ts. .github/workflows/site.yml runs npm install and npm run build and deploys, so the site is live at phase end (spec phase 3 acceptance). The kill gate runs the same build locally and greps dist/ for the framing line on every page.
+- Dash-scan hygiene: web source (*.ts, *.html, *.css, *.svg, *.json, *.yml) is in the scanned source class; copied payloads and generated SVG must pass the section 9 scan (canonical JSON is already clean; chart scripts must emit hyphen-free SVG text). package-lock.json is scanned as *.json: command-line flag tokens are exempt but any other double hyphen would fail; if npm ever emits one, that is a reviewed exemption-table change with a decisions entry, never a silent skip. node_modules and dist are already excluded.
+
+### P3.8 Test plan (158 existing tests stay green)
+
+- test_schedule.py additions: F4 recompute, both cases field-by-field (payment dates, rows with revenue, remittance, cumulative, final_cumulative, residual, status plus shortfall residual companion, warrant not_granted); synthetic cap-before-horizon case (rows stop at the cap period, no trailing zero rows); F5 recompute field-by-field (maturity, interest, total repayment as integer sum, closing fee, moic, warrant not_granted); RBF invariants (remittance never exceeds residual, cumulative never exceeds cap, pre-revenue path yields all-zero remittances and shortfall, dates strictly increasing); bridge end-of-month clamp case; the updated build_schedule refusal message for rbf_capped and bridge.
+- test_returns.py (new): F6 recompute from engine code, base and shocked schedules included; aggregated lender cash flows equal fixture lender_cash_flows_base exactly (dates and cents, final date combined per step 25); base and shocked IRR within abs 0.0001 percent; NPV bracket check recomputed with engine npv at published minus and plus the tolerance (fixture steps 28 and 30 basis: positive below, negative above); irr_delta_bp 111.8 and sensitivity 55.9 exact; total interests exact; moic 1.04; warrant 300,000 with no status key. MOIC closed form: F2 moic equals (interest + principal + warrant) / facility at scale 2 computed by direct Decimal division in the test; schedule.moic and returns.moic agree. no_solution: all-positive flow set and degenerate all-zero set return status no_solution with reason and no value; companion matrix accepts the block. Solver hard failure: monkeypatched tolerance forcing 200 iterations raises SolverError. Warrant: zero coverage gives 0 with not_granted companion; single-quantize boundary checked against a hand product. Fee: close flow equals fee minus facility for all four structures.
+- test_compare.py (new): identical inputs assertion (three rows share byte-identical borrower inputs and base rate source plus source_timestamp, spec 10.6 acceptance); citation presence (every band-sourced cell carries citation with access date and band); binding constraint populated for all three rows; facility repeated across rows; IO-month cells for bridge and RBF are not_applicable with reasons; first-breach placeholder present with its reason; the row matching the drawn structure equals the book schedule totals; featured borrower id in meta equals the scenario.toml value; all 24 tables present with three rows each; comparison meta book_sha256 matches book meta.
+- payload schema tests (test_snapshot.py and test_build.py additions): returns blocks and comparison.json pass validate_payload; status companions verified (no_solution reason, shortfall residual, not_granted zero value, not_applicable reason); no floats anywhere; the byte-identity kill gate extends to book.json plus comparison.json (two-build tree diff unchanged in mechanics).
+- site build: note only in this phase, per the orchestrator. The kill gate runs npm install and npm run build and asserts dist/ exists with the framing line on every page; the automated CI run lands with the phase 5 workflow.
+- Fixture-runner compare mode: deferred to phase 5 with the full gate (see the decisions record); the section 10 pin admits later phases and phase 3 recompute already runs end to end from engine code in pytest.
+
+### P3.9 Task breakdown (one sitting per slice)
+
+| # | Slice | Owner | Depends on | Parallel |
+|---|-------|-------|-----------|----------|
+| 1 | schedule.py RBF branch (RbfRow, RbfSchedule) + F4 tests | backend-dev, tester | none | with 2, 3, 4 |
+| 2 | schedule.py bridge branch + F5 tests | backend-dev, tester | none | with 1, 3, 4 |
+| 3 | returns.py (warrant, cash flows, IRR, MOIC, delta helpers) + test_returns F6 | backend-dev, tester | none | with 1, 2, 4 |
+| 4 | web/ scaffold: Vite vanilla TS, sync-payloads, payload loader, format lib, framing and footer, placeholder routes | frontend-dev | none (shapes pinned here) | with 1, 2, 3 |
+| 5 | compare.py + [site] config key + test_compare | backend-dev, tester | 1, 2, 3 | |
+| 6 | build.py: schedule kinds, returns blocks, comparison.json, rbf_shortfall predicate migration (+ decisions entry), byte identity on both files | backend-dev | 1, 2, 3, 5 | with 7 |
+| 7 | site routes: index, sizing (selector), structures (comparison table, rationale notes, chart data wiring) | frontend-dev | 4 | with 6 |
+| 8 | chart build scripts, SVG generation, OG placeholder | frontend-dev | 7 | |
+| 9 | site live: site.yml, GitHub Pages deploy, npm build in the kill gate | frontend-dev, 10-git, orchestrator | 6, 8 | |
+| 10 | Kill gate: full suite green, verify gate green (dash scan over web files), two-build diff clean, npm build green, docs updated, phase commit | orchestrator, 10-git | 9 | |
+
+Notes: slices 1 to 4 run in parallel (two schedule streams, one returns stream, one site stream); 7 may develop against the pinned payload shapes in parallel with 5 and 6 and integrates at slice 9. Spec section 18 kill criterion applies: any schedule branch that cannot match its closed-form fixture to the cent by gate time is dropped from v1 with the omission disclosed on the methods page, and the remaining branches ship.
+
+### P3.10 Verification checklist and risks
+
+- [x] Every component has one owner and one file (P3.0 table).
+- [x] Data flow has no dead ends (P3.0).
+- [x] File structure matches the spec section 7 layout (returns.py, compare.py, web/) with no new modules beyond it.
+- [x] All technology choices carry rationale and rejected alternatives (row models, comparison payload placement, site toolchain, chart generation, payload copy).
+- [x] Phase integrates cleanly with prior phases: fixtures F1 to F6 untouched, canonical serialization unchanged, sizing and pricing untouched except the disclosed strata predicate migration, book hash fixture untouched.
+- [x] Risks with mitigations:
+      - RBF row semantics drift from F4: the stop-at-cap rule and the min(nominal, residual) rule are tested against both fixture cases plus a synthetic early-cap case.
+      - Returns layer inventing an interest split for RBF: the receipts-based MOIC reading is pinned and disclosed; F4 carries no moic so no fixture is bent.
+      - Comparison table reading as per-structure sizing: the facility column repeats by design and the serviceability-proxy disclosure renders on the table itself and in the rationale notes.
+      - Browser arithmetic creeping into the site: the format-only boundary is pinned in P3.7 and charts run entirely at build time; the shipped bundle can be audited for arithmetic.
+      - package-lock.json failing the dash scan: reviewed exemption change only, flagged in P3.7.
+      - Strata membership drift from the predicate migration: the zero-count gate still fails loudly and the manifest republishes with counts and sorted members.

@@ -171,3 +171,39 @@ Append-only decision history. New entries are appended at the bottom.
 **Decision**: build.py extends the CFADS tail with the generator's own formula (ARR/12 grown at the seeded monthly growth times gross margin, one quantize per period, all zeros for pre-revenue) so every structure sizes on the full canonical horizon. Owner decision 2026-11-11.
 **Rationale**: sizes every borrower on an identical horizon basis, keeping capacities comparable; the extension uses the same pinned path formula, so no new assumption enters the numbers.
 **Trade-offs**: short-path structures publish paths covering their tenor while sizing consumes the extended horizon; disclosed here and to be stated on the methods page in phase 4.
+
+## 2026-11-11 - Phase 3: RBF and bridge schedule row models
+**Context**: F4 rows carry revenue, remittance, and cumulative; F5 is a single repayment at maturity. Forcing both into the amortizing row model would emit fabricated zero interest and principal.
+**Decision**: RBF gets its own RbfRow and RbfSchedule (no interest, principal, or balance keys) with rows stopping at the cap-hit period (inclusive) and status feasible or shortfall with a residual companion plus standalone residual leaf; bridge reuses ScheduleRow and Schedule as exactly one row with simple ACT/365 interest over the whole span and maturity at add_months(close, tenor) rolled forward; build_schedule keeps refusing rbf_capped and bridge with a pointer to the dedicated builders.
+**Rationale**: fixture shapes are ground truth; zero-interest columns would violate the not_applicable principle; the bridge row is algebraically one amortizing period so the shared helpers apply.
+**Trade-offs**: three schedule entry points instead of one union builder; accepted for typed, fixture-shaped rows.
+
+## 2026-11-11 - Phase 3: Returns cash flows, MOIC receipts basis, fee and warrant treatment
+**Context**: Spec section 5 defines MOIC as (interest + principal + warrant value) / funded and puts the closing fee in IRR cash flows; RBF has no interest and principal split and fixture F4 carries no fee field.
+**Decision**: returns.py aggregates dated lender cash flows per date (close: fee minus facility for all four structures including RBF; receipts per schedule; warrant at the final payment date); MOIC numerator is total schedule receipts (remittances for RBF) plus warrant value over the gross facility, fee excluded; warrant value is the fixed factor model (coverage x facility x valuation factor 0.15) quantized once, not_granted companion only at zero coverage (fixture leaf shapes are asymmetric by contract); IRR bisection per the section 13 pins with no_solution on missing sign change.
+**Rationale**: matches every fixture literally (F2, F5, F6 cash flows and MOIC) while keeping one disclosed receipts reading for RBF.
+**Trade-offs**: the RBF MOIC reading is engine-disclosed rather than fixture-pinned (F4 has no moic field); stated on the methods page.
+
+## 2026-11-11 - Phase 3: comparison.json and featured borrower SYN-0005
+**Context**: Spec 10.6 wants three structures on identical inputs with citations and a populated binding constraint; the payload home and the site's featured borrower were open.
+**Decision**: the comparison ships as a separate canonical payloads/<asof>/comparison.json (meta carries asof, book_sha256, featured_borrower_id) beside book.json; all 24 tables are published and the site features SYN-0005 (pinned in scenario.toml [site]); the facility column repeats the canonical capacity in all three rows as the disclosed serviceability proxy; one extension column (total receipts) is added to the spec 10.6 columns; first-breach month is a not_applicable placeholder until phase 4.
+**Rationale**: book.json keeps its pinned phase 2 shape; SYN-0005 is feasible and DSCR-bound by construction at any base rate and carries a live revenue path; the receipts column keeps the RBF row legible at zero browser arithmetic.
+**Trade-offs**: a second canonical file in the byte-identity diff; accepted because the diff covers the whole payloads tree already.
+
+## 2026-11-11 - Phase 3: Site shell toolchain and zero-arithmetic boundary
+**Context**: The phase 1 decisions chose a static Vite plus TypeScript site; phase 3 must pin how payloads reach the browser and where chart math lives.
+**Decision**: vanilla TypeScript Vite multi-page app (no framework, reaffirmed with rationale); payloads copied byte for byte into web/src/data/ by the npm prebuild script (static imports, zero runtime fetch); charts generated at build time by Node scripts in web/scripts/charts/ into static SVG (no chart math in shipped JS); format only means digit grouping, decimal-point placement per unit scale, suffixes, and date rendering, never any sum, ratio, difference, or threshold.
+**Rationale**: the zero-arithmetic claim becomes auditable by inspection of the shipped bundle; committed payloads stay the single source of truth.
+**Trade-offs**: generated data and SVG directories are git ignored, so the site build requires the committed payloads to exist (they always do); framework DX is forgone.
+
+## 2026-11-11 - Phase 3: rbf_shortfall predicate migrates to the real RBF schedule
+**Context**: P2.2 pinned the phase 2 proxy predicate (revenue times rate below cap multiple times sized facility) and its migration to the real schedule in phase 3.
+**Decision**: rbf_shortfall is now structure == rbf_capped and build_rbf_schedule on the sized advance (sized facility remains the disclosed advance proxy) returns status "shortfall"; the build still fails on any zero stratum count and republishes the manifest.
+**Rationale**: the real schedule is the ground truth the payload publishes; the proxy could disagree at the quantize boundary.
+**Trade-offs**: stratum membership counts may move from the phase 2 numbers (6 under the proxy); the book hash is unaffected (it covers generator output only).
+
+## 2026-11-11 - Phase 3: Fixture-runner compare mode deferred to phase 5
+**Context**: Section 10 pinned a fixture-runner compare mode for "phase 3 plus"; phase 3 scope centers on schedules, returns, comparison, and the live site.
+**Decision**: the compare mode (engine fixture outputs in pipeline/build/fixtures/ plus runner comparison) lands with the phase 5 full verify gate; phase 3 recompute runs in pytest against engine code for F1 to F6.
+**Rationale**: the pin admits later phases; keeping phase 3 focused protects the site-live-by-phase-end acceptance.
+**Trade-offs**: one gate surface is late; deferred to phase 5 by the orchestrator, 2026-11-11.
