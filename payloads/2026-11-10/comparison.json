@@ -796,7 +796,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -812,7 +812,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -821,7 +821,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -909,7 +909,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -925,7 +925,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -934,7 +934,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -1023,7 +1023,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -1039,7 +1039,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -1048,7 +1048,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3650,7 +3650,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3666,7 +3666,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3675,7 +3675,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3763,7 +3763,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3779,7 +3779,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3788,7 +3788,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3877,7 +3877,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: (total receipts plus warrant value) / gross facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3893,7 +3893,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: sum of schedule period interest",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3902,7 +3902,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: schedule receipts, interest plus principal or remittances",
               "unit": "status",
               "value": "not_applicable"
             }

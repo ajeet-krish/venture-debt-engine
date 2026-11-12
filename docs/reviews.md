@@ -1,6 +1,6 @@
 # Venture Debt Engine Reviews
 
-Last updated: 2026-11-11
+Last updated: 2026-11-12
 
 ## 2026-11-10 - Phase 1: Code review
 
@@ -179,3 +179,24 @@ single quantize per boundary, explicit MONEY_CONTEXT, no wall clock, no hash
 order), the envelope matrix, and the fixture rules all held under review. F1 to
 F6 are untouched since commit 3aca8cd and the book hash fixture matches live
 generator output (317215cd56585bb5f04d79704cc3338c4412bddac8d2b85e2f80be54a5c0cbf9).
+
+## 2026-11-12 - Phase 3: Code review
+
+Verdict: FAIL (one blocking gap: comparison surface test coverage; every substantive check on the phase 3 code passes)
+
+Evidence run 2026-11-12: uv run pytest -q, 176 passed, exit 0; uv run ruff check ., All checks passed, exit 0; uv run python -m vdebt verify, GATE RESULT: PASS, exit 0 (dash scan 103 files 0 violations 0 unclassified, import isolation PASS, fixture validation 6 of 6, SHA256 prints include rate_shock_fixture.json f33dd930babc73d373b2fc5778140e33bb425c00998bb0f82e1a88f70a012e37); web npm run build exit 0 (sync-payloads byte copies, charts generated in Node, tsc (noEmit) clean, vite build clean apart from a chunk size warning); framing line grep over dist: exactly 3 occurrences in each of the six HTML pages; git diff b197140^..cf205fd on pipeline/fixtures/golden/rate_shock_fixture.json touches only the base block (arithmetic steps 1, 10 to 14, 21, 25, 27, 28, 31, 32, 33; all_in_rate_base 8.0000 to 7.0000; schedule_base interests; lender_cash_flows_base; total_interest_base; moic; base_irr_percent; irr_delta_bp; sensitivity_per_100bp_irr_bp) with the shocked block and the tolerances block byte unchanged. Hand recomputation confirms every rewritten arithmetic string is true: 4.0000 plus 3.0000 is 7.0000; base rows 594,521 / 536,986 / 613,699 / 556,164 / 594,521 sum to 2,895,891; shocked rows sum to 3,723,288; final base flow 594,521 plus 100,000,000 plus 300,000 is 100,894,521; (12.9080 minus 10.6819) x 100 is 222.61 quantized to 222.6; 222.6 / 2 is 111.3; 103,195,891 / 100,000,000 is 1.03195891 quantized to 1.03.
+
+Findings:
+
+| Severity | File:Line | Issue | Fix |
+|----------|-----------|-------|-----|
+| Medium | pipeline/tests/ (test_compare.py absent) | Architecture P3.8 pins test_compare.py (new) with ten assertion groups, and spec section 10.6 acceptance requires the byte-identical borrower inputs and base rate source to be asserted by test. No test in the suite references compare.py, build_comparison, or comparison.json (grep over pipeline/tests finds zero matches), so the comparison surface has zero direct coverage and that acceptance assertion is unmet | Tester adds test_compare.py per P3.8: identical inputs, citation presence with access date, binding constraint on all three rows, facility repetition, IO not_applicable reasons on bridge and rbf rows, first-breach placeholder with reason, drawn-row consistency against book schedule totals, featured borrower echo, 24 tables of three rows, comparison meta book_sha256 equals book meta |
+| Medium | pipeline/tests/test_build.py:232 | test_committed_payload_freshness compares only book.json against a fresh build; the committed comparison.json can go stale without any test failing | Extend the freshness check to payloads/2026-11-10/comparison.json |
+| Low | pipeline/src/vdebt/build.py:1063-1067 | Infeasible comparison rows attach the sizing provenance (derived: bisection, runway floor 18.0 months, DSCR floor 1.1500) to the moic, total_interest, and total_receipts not_applicable cells; the string describes sizing, not the metric the cell would have published | Reuse the per-metric provenance strings (_DERIVED_MOIC, _DERIVED_TOTAL_INTEREST, _DERIVED_RECEIPTS) for those na cells |
+| Low | web/src/content/bands.ts:7 | Comment claims the band cap value is not published in any payload, but build.py publishes sizing.band_cap and web/src/routes/sizing.ts:75 renders it; behavior is correct and the comment is stale | Reword the comment to describe the published envelope with its citation and the honest fallback |
+| Low | docs/tests.md:59 | The failure analysis lists stale references (returns.py docstrings and architecture P3.3 and P3.8 quotes) that were corrected in cf205fd; readers may chase non-issues | Record the corrections as landed |
+| Low | web/ (vite build output) | npm run build emits a chunk size warning: dist/assets/page bundle is 1,356.72 kB because the committed payloads are inlined by static import (the pinned zero-runtime-fetch design) | Accept as by design or raise build.chunkSizeWarningLimit in vite.config.ts with a comment |
+
+Recurring patterns: a new canonical payload file must arrive in the same phase with its freshness assertion and its spec acceptance assertions (test_compare is the first surface where both were skipped); module doc comments that describe what a payload publishes must track build.py changes (bands.ts and the tests.md failure analysis drifted the same way).
+
+Hand recomputation notes for the record: 2026-01-05 is a Monday; F6 period spans 31, 28, 32, 29, 31 days sum to 151; all row interest values are consistent with 0.07 and 0.09 times 100,000,000 times the span over 365, ROUND_HALF_UP once. comparison.json was inspected directly: 24 tables of three rows, first-breach placeholder with the phase 4 reason on every row, RBF total_interest contractual 0 with provenance derived: RBF carries no interest term, pre-revenue rows aligned across all three structures as not_applicable with row-specific reasons (comparison.json:75, 178, 282), infeasible rows publish only status leaves (comparison.json:724-1117), and the single no_solution IRR cell (comparison.json:1368-1375) is honest: SYN-0004 RBF receipts front-load past the pinned solver bracket of -0.99 to 10.00 and the reason string discloses exactly that. book.json meta book_sha256 equals comparison.json meta book_sha256 (317215cd56585bb5f04d79704cc3338c4412bddac8d2b85e2f80be54a5c0cbf9).

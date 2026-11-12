@@ -31,6 +31,9 @@ export default defineConfig({
     // Chart SVGs ship as files rather than inlined data URIs, so the built
     // site carries them as inspectable assets under dist/assets/.
     assetsInlineLimit: 0,
+    // The committed payloads are inlined intentionally under the zero
+    // runtime fetch rule, so the page bundle is large by design.
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       input,
     },

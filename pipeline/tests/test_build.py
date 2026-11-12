@@ -4,7 +4,8 @@ Covers the binding test_build entry in the P2.7 test plan plus this slice's
 envelope contract: the byte-identity kill gate over two subprocess builds
 (tree diff excluding build_meta.json, identical file lists, identical
 digests, same asof directory), committed payload freshness (a fresh build
-from unchanged inputs must equal payloads/<asof>/book.json byte for byte),
+from unchanged inputs must equal payloads/<asof>/book.json and
+payloads/<asof>/comparison.json byte for byte),
 the planted zero-count stratum failure through build._assert_strata_coverage,
 the build log content contract (base rate line with asof and series code,
 per-borrower sizing lines in the pinned P2.5 format, strata manifest counts,
@@ -42,6 +43,7 @@ COMMITTED_PAYLOADS = REPO_ROOT / "payloads"
 ASOF = "2026-11-10"
 SERIES = "TB.CDN.90D.MID"
 COMMITTED_BOOK_PATH = COMMITTED_PAYLOADS / ASOF / "book.json"
+COMMITTED_COMPARISON_PATH = COMMITTED_PAYLOADS / ASOF / "comparison.json"
 COMMITTED_META_PATH = COMMITTED_PAYLOADS / "build_meta.json"
 
 # Engine-derived RNG drift fingerprint, committed in
@@ -255,6 +257,31 @@ def test_committed_payload_freshness(tmp_path: Path) -> None:
         )
     assert committed_digest == _sha256(COMMITTED_BOOK_PATH), (
         "freshness check compared a different committed file than pinned"
+    )
+
+    # The same freshness contract for comparison.json: the fresh build in
+    # this temp tree already wrote it beside book.json, so compare those
+    # bytes against the committed payload with the same digest message.
+    fresh_comparison = root / dirs[0] / "comparison.json"
+    assert fresh_comparison.is_file(), (
+        f"fresh build wrote no comparison.json under {root}"
+    )
+    committed_comparison = COMMITTED_PAYLOADS / dirs[0] / "comparison.json"
+    assert committed_comparison.is_file(), (
+        f"committed payload missing for asof {dirs[0]}: {committed_comparison}"
+    )
+
+    fresh_comparison_digest = _sha256(fresh_comparison)
+    committed_comparison_digest = _sha256(committed_comparison)
+    if fresh_comparison_digest != committed_comparison_digest:
+        pytest.fail(
+            "committed comparison payload is stale: committed "
+            f"{committed_comparison} sha256={committed_comparison_digest} differs "
+            f"from the fresh build {fresh_comparison} sha256="
+            f"{fresh_comparison_digest} (asof {dirs[0]})"
+        )
+    assert committed_comparison_digest == _sha256(COMMITTED_COMPARISON_PATH), (
+        "freshness check compared a different committed comparison file than pinned"
     )
 
 

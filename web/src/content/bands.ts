@@ -3,9 +3,10 @@
  *
  * The band name, the rule, and the citation are transcribed from the
  * committed scenario configuration (pipeline/config/scenario.toml,
- * [bands.facility_sizing]). They are printed as text: the cap value in
- * dollars is not published in any payload, so the site shows the rule with
- * its citation and never derives a cap figure in the browser.
+ * [bands.facility_sizing]) so the site can always render the rule beside a
+ * cap figure. The cap VALUE itself is never derived in the browser: it is
+ * read from the published sizing.band_cap envelope in the committed
+ * payloads, and this module supplies only the rule text and citation.
  */
 
 export interface BandRule {

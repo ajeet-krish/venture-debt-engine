@@ -1062,9 +1062,11 @@ def _comparison_row_document(
     if row.facility_cents is None:
         facility: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
         fee: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
-        receipts: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
-        row_moic: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
-        total_interest: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        receipts: object = _na_cell(_DERIVED_RECEIPTS, INFEASIBLE_REASON, asof)
+        row_moic: object = _na_cell(_DERIVED_MOIC, INFEASIBLE_REASON, asof)
+        total_interest: object = _na_cell(
+            _DERIVED_TOTAL_INTEREST, INFEASIBLE_REASON, asof
+        )
     else:
         facility = envelope(
             row.facility_cents,
