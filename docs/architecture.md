@@ -1533,3 +1533,264 @@ Notes: slices 1 to 4 run in parallel (two schedule streams, one returns stream, 
       - Browser arithmetic creeping into the site: the format-only boundary is pinned in P3.7 and charts run entirely at build time; the shipped bundle can be audited for arithmetic.
       - package-lock.json failing the dash scan: reviewed exemption change only, flagged in P3.7.
       - Strata membership drift from the predicate migration: the zero-count gate still fails loudly and the manifest republishes with counts and sorted members.
+
+## Phase 4 design
+
+Appended 2026-11-12 (phase 4 of 6). Sections 1 to 15 and the Phase 2 and Phase 3 designs above are binding and unchanged. This section pins the covenant package (pipeline/src/vdebt/covenants.py), the downside scenario and its transmission, the rate-shock and sensitivity publication, the methods page pipeline, the returns page and book dashboard routes, the payload and schema extensions (including the new canonical scenarios payload), the phase 4 test plan, and the ordered task slices. The full verify gate and CI blocking gates are phase 5. Fixtures F1 to F6 are never regenerated.
+
+### P4.0 Component map and data flow
+
+| Component | Responsibility | File |
+|-----------|---------------|------|
+| Covenant engine | four covenants, per-period actuals and headroom envelopes, first-breach month | pipeline/src/vdebt/covenants.py |
+| Scenario runner | base, downside, and rate-shock blocks; invariance enforcement; deltas | pipeline/src/vdebt/scenarios.py |
+| Payload assembly | covenants and scenario blocks in book.json, scenarios.json, dashboard summary, comparison first-breach cells | pipeline/src/vdebt/build.py |
+| Envelope and status | breach status enum member; validator otherwise untouched | pipeline/src/vdebt/snapshot.py |
+| Methods content | canonical docs/methods.md compiled to a TS module | docs/methods.md, web/scripts/build-methods.js, web/src/content/methods.ts |
+| Returns page | base versus downside side by side, published deltas | web/src/routes/returns.ts |
+| Book dashboard | committed counts verbatim, build-time SVG | web/src/routes/dashboard.ts, web/scripts/charts/dashboard-charts.js |
+| Dashboard config | capacity bin edges | pipeline/config/scenario.toml [dashboard] |
+
+Data flow additions to section 4 and P3.0: the generator paths and the sized facility feed covenants.py together with the structure schedules and the configured covenant limits; covenants.py emits typed per-period headroom rows for base and downside; scenarios.py recomputes the downside paths and the RBF remittance schedule, assembles the scenario flow sets and every published delta, and derives the rate-shock block from the phase 3 returns helpers; build.py writes book.json (covenants summaries and scenario blocks added), scenarios.json (per-period envelope detail), and comparison.json (real first-breach cells), plus the book summary block the dashboard renders; web/scripts/sync-payloads.js copies all payload files byte for byte; route modules import book.json and comparison.json only (scenarios.json is read by build-time chart scripts and reaches the browser only as inert SVG); docs/methods.md is compiled by web/scripts/build-methods.js into web/src/content/methods.ts at site build time. No path dead ends: every published figure traces to a committed input, a configured band with its citation, or a fixture.
+
+Phase 4 technology decisions:
+
+| Decision | Choice | Why | Alternative rejected | Trade-off |
+|----------|--------|-----|----------------------|-----------|
+| Covenant module placement | new pipeline/src/vdebt/covenants.py | spec section 7 lists it; one owner per metric family | folding into returns.py | one more module |
+| Scenario module placement | new pipeline/src/vdebt/scenarios.py beside build.py | scenario math must be pure and testable; build.py owns envelopes and already spans 1,300 lines | extending build.py with scenario sections | one more module (flagged like the config.py addition) |
+| Per-period covenant detail | separate canonical payloads/<asof>/scenarios.json | keeps book.json small enough to statically bundle; byte identity already covers the whole payloads tree | nesting per-period rows in book.json | third file in the tree diff |
+| Scenario headline placement | nested per-borrower scenarios block in book.json | the returns page reads one borrower record side by side with no third import | a separate headline payload | book.json grows by summaries only |
+| EBITDA proxy | EBITDA_t = cfads_t per period | CFADS is the project's only earnings proxy; no cash-cost model exists | annualized run rate | leverage reads as a coverage proxy; disclosed |
+| Net debt | closing debt balance minus cash balance per period | cash netting is the standard convention and both quantities exist | facility only | depends on the derived cash path |
+| Min cash limit | 6.0 months of net burn, stated assumption | scales with the borrower like the runway floor; months of burn is the book's cash vocabulary | fixed dollar floor | not a market quote; labeled |
+| Downside return metrics | base warrant valuation inside IRR and MOIC in both scenarios (owner confirmed 2026-11-12) | makes the pinned term-loan IRR invariance literal | scenario-pure flows (recorded alternative, see P4.2) | downside MOIC understates the revalued kicker; disclosed |
+| Dashboard numbers | committed count envelopes in book.json meta | the phase 5 gate can recompute them naively | Node-side counting | meta block grows |
+| Methods delivery | docs/methods.md compiled to a TS string module at build time | canonical doc stays canonical; no runtime markdown dependency; dash clean by construction | build-time markdown to HTML; runtime parser | one generated file (git ignored) |
+| First-breach unit | months scale 1, value equals the period index | periods are monthly, so the index is months since close | count unit | slightly odd scale for integers |
+
+### P4.1 Covenant module (pipeline/src/vdebt/covenants.py)
+
+Vocabulary (spec section 5), four covenants pinned with type, limit, and data:
+
+| Covenant | Type | Limit | Consumes per period t | Applicability |
+|----------|------|-------|----------------------|---------------|
+| net_leverage | max | [covenants] net_leverage_max "3.0000" | EBITDA_t = cfads_t; net_debt_t = closing_balance_t minus cash_t | not_applicable when EBITDA_t is not strictly positive in every tested period |
+| interest_cover | min | [covenants] interest_cover_min "2.0000" | EBITDA_t = cfads_t; cash interest = interest_t of the structure row | not_applicable for zero EBITDA (pre-revenue) and for structures with no interest term (rbf_capped) |
+| min_cash | min | months of burn floor (below) | cash_t recurrence | always applicable |
+| dscr_floor | min | cfg.sizing.dscr_floor ("1.1500", bands.dscr_floor_reference, SBA citation) | cfads_t / (interest_t + principal_t); for RBF cfads_t / remittance_t over positive-remittance periods only | not_applicable when no tested period has positive debt service (pre-revenue RBF) |
+
+Pinned data definitions:
+- EBITDA proxy: EBITDA_t = cfads_t (the gross-margin proxy) because cash costs are not modeled in the generator. Published as a ratio leaf with provenance "derived: EBITDA proxy is period CFADS, gross margin basis, cash costs not modeled". Rationale: CFADS is the book's only earnings quantity and reusing it keeps the covenant math hand-checkable; a synthetic opex model would invent a second cost base. Trade-off: the leverage ratio reads as a coverage multiple rather than a market EBITDA multiple; disclosed on the methods page.
+- Net debt: net_debt_t = closing_balance_t minus cash_t (exact integer cents, may be negative). closing_balance_t is the structure schedule's closing balance for period t (bridge: the single row; RBF: the advance carried constant because no principal amortizes). Rationale: net debt conventionally nets cash and both quantities already exist; facility-only net debt would overstate leverage for cash-rich borrowers. Trade-off: the ratio depends on the derived cash path, which is pinned here and published per period in scenarios.json.
+- Cash path: cash_t = cash_(t-1) minus net_burn_cents minus debt_service_t, with cash_0 = cash_cents (the drawn cash) and debt_service_t = interest_t + principal_t of the structure row (RBF: remittance_t; bridge: the single maturity payment). Facility proceeds never enter the recurrence (the conservative lender-view runway convention from the decisions log, extended to the cash path). No zero clamp: a negative balance publishes as a signed integer and is exactly what a breach shows. Every step is exact integer cents with no rounding point. Derived values: burn_floor_cents = quantize(min_cash_floor_months times net_burn_cents, 0) once; the minimum-cash recurrence reads cash_(t-1) minus burn_floor_cents as its threshold, which is identical to computing the full path and subtracting the constant floor at the end.
+- Minimum cash limit: limit_t = burn_floor_cents (base) or quantize(min_cash_floor_months times downside_burn_cents, 0) (downside), so the floor scales with the scenario's burn. Stated project assumption with the citation "Venture Debt Engine stated covenant assumption, not a market quote (accessed 2026-11-12)".
+
+Headroom per period: headroom_t = limit minus actual for max types (net_leverage) and actual minus limit for min types (interest_cover, min_cash, dscr_floor), computed in Decimal at MONEY_CONTEXT on the unquantized ratio and quantized exactly once at the publication boundary. Headroom scale follows the actual's metric scale: ratio 4 for net_leverage, interest_cover, and dscr_floor; usd_minor_units 0 for min_cash (the difference of two cent figures is exact). Per-period DSCR ratios stay unquantized for comparison (the F1 step 23 basis) while the published per-period DSCR leaf quantizes once to ratio scale 4.
+
+Per-period publication shape (the headroom envelopes, per applicable covenant and scenario):
+
+```text
+"periods": [ { "period": <count envelope>, "payment_date": <date envelope>,
+               "actual": <ratio 4 or usd_minor_units envelope>,
+               "headroom": <same unit envelope>, "status": <status envelope
+               "feasible" | "breach"> }, ... ]
+```
+
+- One row per structure schedule period over the borrower's own schedule horizon (the drawn structure in book.json summaries; each of the three comparison structures in scenarios.json). The limit is published once per covenant block, not per row.
+- Zero-service periods (for example RBF periods with zero remittance) publish no DSCR row; when the whole horizon is excluded the covenant block publishes not_applicable with its reason.
+
+First-breach month: the first period index t whose headroom status is "breach" under the pinned scenario (spec 10.6 column: under downside). Published as { "status": <envelope breach | feasible | not_applicable>, "value": <months scale 1 envelope iff breach>, "reason": <str iff not_applicable> }. Pins:
+- The value's unit is months, scale 1 ("13.0"), because periods are monthly and the period index equals months since close.
+- When no period breaches through the horizon the status is "feasible" (all floors satisfied over the tested horizon, section 6.4 semantics) with no value and no reason; the derived provenance states "no breach through the horizon".
+- not_applicable with reason covers borrowers with no facility (infeasible sizing) and covenants with no tested periods.
+- The borrower-level first_breach_month is the minimum breach period across applicable covenants, or the feasible leaf when none breaches. This is the value the comparison column and the structures page render.
+
+not_applicable rules (stated reasons, never fabricated zeros):
+- pre_revenue borrowers (ARR 0, cfads all zero cents): net_leverage and interest_cover publish not_applicable with reasons "pre-revenue borrower, EBITDA proxy (CFADS) is zero so net leverage is undefined" and "... so interest cover is undefined". This covers the spec's "pre-profit borrowers have negative EBITDA" case: under the pinned proxy EBITDA is never negative, so zero EBITDA is the undefined case and is marked the same way.
+- rbf_capped structures: interest_cover not_applicable with reason "RBF carries no interest term so cash interest is undefined".
+- pre-revenue RBF rows: dscr_floor not_applicable with reason "no period carries positive remittance so RBF DSCR is undefined".
+- min_cash is always applicable (the cash recurrence is defined for every borrower and structure).
+
+Interface:
+
+```python
+@dataclass(frozen=True)
+class CovenantSpec:
+    name: str            # "net_leverage" | "interest_cover" | "min_cash" | "dscr_floor"
+    kind: str            # "max" | "min"
+    limit: Decimal | int # ratio Decimal, or cents int for min_cash
+    unit: str            # "ratio" | "usd_minor_units"
+    citation: str        # band citation or stated-assumption citation
+    band: str | None     # band label for dscr_floor, else None
+
+@dataclass(frozen=True)
+class CovenantPeriod:
+    period: int
+    payment_date: date
+    actual: Decimal | int | None    # None in excluded periods
+    headroom: Decimal | int | None
+    status: str                     # "feasible" | "breach"
+
+@dataclass(frozen=True)
+class CovenantResult:
+    spec: CovenantSpec
+    status: str                     # "feasible" | "breach" | "not_applicable"
+    reason: str | None
+    periods: tuple[CovenantPeriod, ...]
+    first_breach_month: int | None
+    min_headroom: Decimal | int | None
+
+def cash_path(cash_cents: int, net_burn_cents: int,
+              debt_service_cents: tuple[int, ...]) -> tuple[int, ...]
+def burn_floor_cents(net_burn_cents: int, floor_months: Decimal) -> int
+def evaluate_covenant(spec: CovenantSpec, *, ebitda: tuple[int, ...],
+                      net_debt: tuple[int, ...], cash: tuple[int, ...],
+                      cash_interest: tuple[int, ...] | None,
+                      debt_service: tuple[int, ...] | None,
+                      dates: tuple[date, ...]) -> CovenantResult
+def evaluate_package(covenants: tuple[CovenantSpec, ...], ...) -> tuple[CovenantResult, ...]
+```
+
+covenants.py is pure computation like returns.py: dataclasses in, dataclasses out; all envelope assembly stays in build.py, the single envelope owner. New provenance strings pin every derivation verbatim for the methods page (for example "derived: headroom = actual minus limit (min type)"). Test vectors for test_covenants are hand-computed by the tester from this pin before the module lands (the fixture-first rule applied to this new surface; the six golden fixtures stay untouched).
+
+### P4.2 Downside scenario (pipeline/src/vdebt/scenarios.py)
+
+Mechanics:
+- The facility is sized on the BASE case once and held fixed in every scenario. The downside never re-sizes (a stressed re-size would move the capacity headline and break the comparison facility column).
+- Configured shocks from [downside]: burn_uplift_pct "50.00" and revenue_downlift_pct "30.00". New key [downside] warrant_factor = "0.75" (the pinned warrant downside factor configuration key): downside_warrant_cents = quantize(coverage/100 x facility x valuation_factor x warrant_factor, 0) once, equivalently quantize(base_warrant x warrant_factor, 0). Provenance: "derived: warrant fixed factor model revalued at the downside factor 0.75, stated assumption, standalone scenario figure".
+- Path transforms, one quantize per period, ROUND_HALF_UP: revenue_t^D = quantize(revenue_t x (1 minus 30/100), 0); cfads_t^D = quantize(revenue_t^D x gross_margin / 100, 0); burn^D = quantize(net_burn x 1.5, 0). The RBF remittance schedule rebuilds through schedule.build_rbf_schedule on the downside revenue path at the same advance, rate, and cap: remittances fall, rows stop at the cap-hit period or run the horizon, and a base cap-hit borrower can degrade to shortfall (published with its residual companion).
+- Downside transmission (the pinned reading of the decisions record "Downside transmission"; owner confirmed 2026-11-12 as Package A):
+  - Changes: RBF remittance rows and receipts (fall), covenant headroom and first-breach months (recomputed on downside cfads, downside cash path, downside burn floor), the warrant value (revalued standalone figure with its published delta).
+  - Invariant by construction: term-loan (bullet, io_then_straight_line, bridge) contractual cash flows (close fee minus facility, interest, principal) and therefore the lender IRR, MOIC, total interest, and total receipts of those structures, byte-identical across scenarios. Mechanism: the scenario return metrics (lender_irr and moic) carry the BASE fixed-factor warrant valuation in both scenarios, so the only scenario inputs to the return math are the receipts, which are contractual for term structures and downside-only for RBF.
+  - RBF return metrics move through the remittance channel only (its receipts are its remittances).
+  - The revalued downside warrant is published ONLY as the standalone figure in the scenario block with its own delta and its own provenance naming the pinned rule. The methods page statement (quoted verbatim on every surface that renders the comparison): "Under downside the term-loan contractual cash flows and lender IRR are invariant by construction. The warrant is revalued under downside and published as a standalone figure; per the pinned transmission rule it does not enter the scenario IRR or MOIC. RBF remittances fall with revenue and move the RBF return metrics."
+  - Rejected alternative (recorded, not chosen): scenario-pure flow sets where the revalued warrant enters the downside IRR, moving the term-loan total IRR through the warrant channel and requiring a separate contractual_irr figure to carry the invariance. If this reading is ever adopted, only scenarios.py flow assembly and the methods wording change; the payload shape is identical.
+- Deltas: every headline delta (downside minus base) is computed in scenarios.py and published as its own envelope (lender_irr_delta as bp scale 1 to match the rate-shock sensitivity vocabulary, moic_delta as multiple scale 2, total_interest_delta, total_receipts_delta, and warrant_delta as usd_minor_units). The browser never subtracts (the P3.7 zero-arithmetic boundary).
+
+Module placement: a new pipeline/src/vdebt/scenarios.py, not build.py sections. Rationale: the scenario math (path transforms, RBF rebuild, flow assembly, delta derivation) is pure computation that test_scenarios must exercise directly, and build.py already owns envelope assembly only. Trade-off: one more module in the vdebt package map (AGENTS.md map gains covenants and scenarios).
+
+Payload shape (recommended and pinned): nested scenario blocks in book.json for the site's headline needs plus ONE new canonical file for the per-period detail.
+- book.json borrowers[] gain two keys (the meta plus rates plus borrowers top shape is unchanged):
+
+```text
+"covenants": {
+  "base":     { <four covenant blocks: spec leaves (name, kind, limit with
+                 citation), status, reason iff not_applicable, min_headroom,
+                 first_breach_month> },
+  "downside": { <same shape> },
+  "first_breach_month": <borrower-level months leaf or status leaf>
+},
+"scenarios": {
+  "base":     { "lender_irr", "moic", "total_interest", "total_receipts",
+                "closing_fee", "warrant", "warrant_contractual" },
+  "downside": { "lender_irr", "moic", "total_interest", "total_receipts",
+                "closing_fee", "warrant", "warrant_contractual",
+                "rbf_status", "rbf_residual" (iff structure rbf_capped) },
+  "deltas":   { "lender_irr_delta", "moic_delta", "total_interest_delta",
+                "total_receipts_delta", "warrant_delta" },
+  "rate_shock": { <P4.3 block> }
+}
+```
+
+  Infeasible borrowers publish the not_applicable shape (status plus reason) in both blocks, never fabricated zeros.
+
+- NEW canonical file payloads/<asof>/scenarios.json, written through snapshot.write_payload in the same build: meta (asof, book_sha256 from the same generator document) plus one "borrowers" list with, per borrower, per scenario (base, downside), per structure (the drawn structure plus the three comparison structures), the per-period covenant blocks in the P4.1 shape, the per-period cash path, and the scenario schedule rows (RBF remittance rows differ under downside). Justification: the per-period envelope rows for 4 covenants times 2 scenarios times up to 54 periods would multiply book.json by megabytes and bloat every route bundle (book.json is statically imported and inlined by Vite), while no phase 4 page renders per-period rows; the byte-identity diff already covers the whole payloads tree (P3.6 note), so a third file costs nothing in determinism mechanics. Trade-off: a third canonical file and a third SHA256 in the gate printout; sync-payloads.js copies it byte for byte but no route module imports it.
+- comparison.json: the first_breach_month cell replaces its placeholder in place (the P3.5 pin: the column shape never moves). Each of the three rows runs its own covenant computation on its own structure schedule under downside. A row whose borrower is infeasible keeps the not_applicable shape with the sizing reason.
+
+### P4.3 Rate shock and sensitivity publication
+
+Computation exists since phase 3 (returns.irr_delta_bp, returns.sensitivity_per_100bp; F6 pins 222.6 and 111.3). Phase 4 publishes, per borrower, in the scenarios.rate_shock block of book.json:
+- shocked_all_in_rate (already published in pricing; echoed here by the same envelope)
+- shocked_total_interest: usd_minor_units envelope, total interest of the schedule rebuilt at the shocked all-in rate
+- shocked_lender_irr: percent_annual scale 4 envelope with the lender_irr document status companion shape (no_solution possible)
+- irr_delta_bp: bp scale 1 envelope, (shocked minus base) x 100 quantized once
+- sensitivity_per_100bp: bp scale 1 envelope, delta_bp / (rate_shock_bp / 100) quantized once
+- The warrant stays at its base value in the shocked flow set (the shock is a rate scenario only). RBF borrowers publish shocked_total_interest as the contractual zero with the "derived: RBF carries no interest term" provenance and their shocked IRR fields as not_applicable with reason "RBF carries no interest term so a rate shock does not reprice its receipts" (never a fabricated 0 bp).
+- Every published figure carries unit bp on the two delta leaves (spec 10.4) and its base rate source plus source_timestamp on the rate leaves (external provenance).
+- The band-excursion check stays report-only and base-only (phase 2 pin unchanged); the shocked all-in remains excluded from it.
+- F6 mapping: the F6 fixture acceptance now maps to this publication; the engine fixture-output compare mode lands in phase 5, while the pytest recompute asserts the published block equals the F6 expected values on the fixture's own inputs (delta 222.6 exact, sensitivity 111.3 exact, shocked IRR 12.9080 within abs 0.0001 percent).
+
+### P4.4 Methods page
+
+- docs/methods.md is the canonical text (the documentation agent authors it in a later task). Required section outline, pinned from spec 10.7:
+  1. Conventions: ACT/365 day count; business-day roll forward only with no holiday table; monthly periods; integer cents with single rounding at the metric boundary and ROUND_HALF_UP; IRR bisection tolerance and bracket; DSCR floor 1.15x reference; runway floor 18 months; band caps and their sources with access dates; the EBITDA proxy and cash-path definitions from P4.1; the capacity serviceability-proxy disclosure; the RBF receipts MOIC reading; the MOIC fee-exclusion asymmetry; the short-rate plus spread restatement; the downside transmission statement (P4.2 wording, verbatim); the warrant fixed-factor model and its downside standalone revaluation; the rate-shock scenario definition.
+  2. Rule-of-thumb citations: the full spec section 5 table reproduced with source names and access dates (Mercury, CVCA, SBA), each row next to its value.
+  3. Data disclosure: all borrowers synthetic from the seeded generator; base rates are real Bank of Canada Valet observations used only as a rate level anchor; no facility in this repository is real; the gross-margin, growth, and covenant-limit bands are stated project assumptions, not market quotes.
+  4. Limitations: single-draw sizing in v1; milestone tranching capped but not simulated as contingent; EBITDA covenants marked not applicable for pre-revenue borrowers; warrant value is a stated-assumption model not a market quote; no collateral or recovery modeling; no tax or accounting treatment; capacity is a serviceability proxy on the canonical schedule; per-period covenant detail lives in scenarios.json.
+  5. Prohibited claims: the spec section 2 list repeated verbatim in prose (the five "Never claim, present, publish" bullets plus the non-goals), with the compliance optics rules restated.
+  6. Attribution (spec section 19, needed by the phase 5 attribution gate): Open Government Licence Canada naming TB.CDN.90D.MID; the three research citations by name; MIT for the code.
+- Delivery (pinned): a build-time compile step, not a runtime markdown dependency. web/scripts/build-methods.js (Node, run in the npm prebuild chain after sync-payloads) reads docs/methods.md and emits web/src/content/methods.ts, a generated TypeScript module exporting PRE-RENDERED STATIC HTML plus a plain-text export for the prohibited-claim test. The compiler is deliberately minimal (headings, paragraphs, lists, thematic breaks, pipe tables, inline code) and hyphen-free; no npm dependency is added. routes/methods.ts renders the static HTML string through the existing page shell. Rationale: docs/methods.md stays the single canonical file the documentation agent edits; no markdown parsing ships to the browser; the generated module is dash clean because the compiler escapes its output and the source is scanned. Rejected: a hand-written TS string module (canonical text would fork from docs/methods.md) and a runtime markdown library (dependency churn and shipped parsing code). Trade-off: one generated file (git ignored alongside src/data and src/charts) and a small compiler to maintain.
+- Acceptance wiring (spec 10.7): the documentation test asserts the DSCR reference, the sizing band, both pricing bands, and the cap multiple appear with citations in the text, and that no prohibited-claim vocabulary appears anywhere except the verbatim prohibited-claims section (the phrase list is assembled from fragments in the test so the test source passes the dash scan).
+
+### P4.5 Returns page (web/src/routes/returns.ts)
+
+- Renders base versus downside side by side per spec 12: lender IRR, MOIC, total interest, warrant value, plus total receipts and closing fee, each with its published delta envelope (downside minus base, computed in the pipeline per P4.2). A third column renders the rate-shock block (shocked IRR, shocked total interest, irr delta bp, sensitivity per 100 bp).
+- Data: the borrower record's scenarios block in book.json only (committed payloads, static import, no fetch). The existing borrower selector swaps records client side; SYN-0005 is the default featured borrower.
+- Every number renders verbatim from its envelope through lib/format.ts (digit grouping and point placement only); the delta column renders published delta envelopes and never subtracts. A delta of exactly zero on the invariant term-loan rows renders as "0.00 (invariant by construction)" from a published status label on the delta envelope, not from a threshold comparison in the browser.
+- The warrant row carries the stated-assumption label (spec section 5) and the downside warrant row carries the standalone-revaluation label from the P4.2 provenance string. The framing line and the illustrative sizing label render per the phase 3 shell pins.
+
+### P4.6 Dashboard (web/src/routes/dashboard.ts, new route)
+
+- New route dashboard.html; the spec section 12 route list gains "dashboard" (the case study stays phase 5). Surfaces: capacity distribution, binding-constraint mix, infeasible count over the 24 borrowers, rendered as committed numbers plus build-time SVG charts.
+- Number provenance (pinned, never in the browser): book.json meta gains a "book_summary" block computed by build.py at build time and published as count envelopes:
+  - capacity_distribution: a sorted list of {bin_low, bin_high, count} entries whose edges come from scenario.toml [dashboard] capacity_bin_edges_usd (integer cents: 0, 100,000,000, 250,000,000, 500,000,000, 1,000,000,000, 2,500,000,000, 5,000,000,000 cents, that is 0 to 500 million USD in six bins), low edge inclusive and high edge exclusive except the last bin which includes its high edge. The binning is engine arithmetic: a histogram binning is arithmetic and belongs in the pipeline where the phase 5 gate can recompute it naively.
+  - binding_constraint_mix: counts per binding_constraint value ("runway", "dscr", "band_cap") plus infeasible_count and feasible_count (count envelopes, provenance "derived: count of sizing outcomes over the committed book").
+  - A count of committed records is a length read in principle, but the browser does not even do that: every dashboard number is a committed envelope value the route renders verbatim (the zero-arithmetic boundary excludes counts once filtering is involved).
+- Charts per the pinned build-time pattern: web/scripts/charts/dashboard-charts.js reads web/src/data/book.json and emits web/src/charts/dashboard-capacity.svg (histogram bars from the committed bin counts) and web/src/charts/dashboard-mix.svg (binding-constraint mix bars from the committed mix counts). Geometry and labels only; the script never counts or bins (a counting script would become a second arithmetic engine outside the verify gate). The browser loads the SVGs as inert static assets.
+- Config: scenario.toml gains [dashboard] capacity_bin_edges_usd = [0, 1000000000, 2500000000, 5000000000, 10000000000, 25000000000, 50000000000] (integer cents; integers are legal TOML values under the decimal policy).
+
+### P4.7 Payload and schema impacts
+
+| Surface | Change | Byte-identity impact |
+|---------|--------|----------------------|
+| book.json | borrowers gain covenants and scenarios blocks (summaries only); meta gains book_summary | payloads regenerate; two-build tree diff mechanics unchanged; committed freshness test covers the new bytes |
+| comparison.json | first_breach_month cells replace the placeholder in place; row shape otherwise unchanged | same |
+| scenarios.json | NEW canonical file (per-period detail) | third file in the tree diff and in the gate SHA256 printout |
+| build_meta.json | untouched | none (excluded from byte identity) |
+| pipeline/fixtures/generator/book_sha256.json | UNCHANGED (hash covers the generator document only) | none |
+| F1 to F6 | untouched | none |
+
+Status enum (section 6.4): one new member, "breach", added to the Status Literal and STATUS_VALUES in snapshot.py with a docs/decisions.md entry. Rationale: "infeasible" is a solver outcome (no value satisfies the floors); "breach" is a per-period covenant test outcome (a tested period below its floor); overloading infeasible would make the sizing and covenant vocabularies collide. Companion matrix addition: breach requires no companion (the row's limit, actual, and negative headroom are its evidence). feasible, not_applicable, not_granted, shortfall, and no_solution keep their existing semantics and companions; the first-breach month reuses feasible (no breach through the horizon) and not_applicable (no facility, no tested periods) per P4.1. web/src/lib/payload.ts gains the "breach" member in its status validation. No new units (bp exists); new derived provenance strings pin every covenant and scenario derivation verbatim.
+
+### P4.8 Test plan (187 existing tests stay green)
+
+- test_covenants.py (new): headroom sign convention both types on hand rows (max: limit minus actual; min: actual minus limit); the cash path recurrence on a hand case (cash_0 minus t x burn minus cumulative debt service, no zero clamp); burn floor quantize; EBITDA proxy equals cfads per period; net debt equals closing balance minus cash; not_applicable rules and reason strings (pre-revenue EBITDA pair, RBF interest cover, pre-revenue RBF DSCR); excluded zero-service periods produce no DSCR rows; first-breach month on a synthetic path that breaches in period 3 (assert months "3.0") and the feasible leaf when none breaches; validate_payload accepts the new breach enum member; min-cash headroom is exact cents.
+- test_scenarios.py (new): downside path transforms (revenue x 0.7, cfads recomputed from downside revenue, burn x 1.5, one quantize each); RBF downside remittance recompute (a base cap-hit case degrades to shortfall with residual companion); warrant downscale (single quantize at the product boundary; the configured key value 0.75 asserted); term-loan IRR invariance assertion: for bullet, io_then_straight_line, and bridge borrowers the base and downside lender cash flow tuples are equal by value and the lender_irr, moic, total_interest, and total_receipts envelopes are byte-identical across scenarios (string equality of canonical values); zero-warrant term borrower SYN-0002 total IRR identical across scenarios; RBF return metrics move only through remittances (contractual receipts equal, remittance receipts differ); covenant headroom and first-breach month differ across scenarios on a synthetic stressed case; every delta envelope equals the naive subtraction recomputed in the test at the published scale.
+- test_returns.py additions (F6 publication mapping): the published rate-shock block on the F6 inputs equals the fixture expected (shocked total interest exact, shocked IRR within abs 0.0001 percent, irr_delta_bp 222.6 exact, sensitivity_per_100bp 111.3 exact); RBF rate-shock not_applicable leaves carry their reasons; every rate leaf carries source and source_timestamp.
+- test_build.py additions: book.json covenants and scenarios blocks and scenarios.json pass validate_payload; the byte-identity kill gate extends to the third file (mechanics unchanged); meta.book_summary counts equal a naive recount over the committed borrower list (mix counts sum to 24, bin counts sum to the feasible count); committed payload freshness (committed book.json, comparison.json, and scenarios.json equal a fresh build); comparison first_breach_month cells carry real values or the not_applicable shape, never the phase 4 placeholder reason.
+- Web kill-gate greps over dist/ (phase 3 pattern): returns page renders the framing line, the base versus downside block, one published delta per headline number, and the invariance label on zero deltas; dashboard renders the committed infeasible count and mix numbers verbatim and both SVG assets; methods renders docs/methods.md content (grep for the DSCR reference, both pricing bands, the cap multiple, and the SBA and Mercury citations).
+- Documentation tests (new test_methods.py): spec 10.7 acceptance (DSCR reference 1.15, the 20 to 50 percent sizing band, both pricing bands, the cap multiple appear with citations in the prose); every spec section 5 rule-of-thumb row appears with access dates; the prohibited-claim vocabulary sweep over the whole tree with the verbatim section 2 list exempted only inside the methods prohibited-claims section (phrase list assembled from fragments so the test source is dash clean); the framing line appears in docs/methods.md.
+
+### P4.9 Task breakdown (one sitting per slice)
+
+| # | Slice | Owner | Depends on | Parallel |
+|---|-------|-------|-----------|----------|
+| 1 | scenario.toml [covenants] and [dashboard] keys; config.py extension plus tests | backend-dev, tester | none | with 2, 5, 6 |
+| 2 | covenants.py (dataclasses, cash path, four covenants, first breach) plus test_covenants.py (tester hand vectors from the P4.1 pin) | backend-dev, tester | none | with 1, 5, 6 |
+| 3 | scenarios.py (downside transforms, RBF rebuild, Package A flow assembly, deltas, rate-shock block) plus test_scenarios.py | backend-dev, tester | 2 | |
+| 4 | build.py wiring: covenants and scenarios blocks in book.json, scenarios.json, meta.book_summary, comparison first-breach cells, breach enum in snapshot.py plus validate_payload, byte-identity extension | backend-dev | 1, 3 | |
+| 5 | web/scripts/build-methods.js and methods route wiring (compiler skeleton; docs/methods.md text comes later) | frontend-dev | none | with 1, 2, 6 |
+| 6 | web/scripts/charts/dashboard-charts.js and dashboard.html route skeleton | frontend-dev | none (shapes pinned here) | with 1, 2, 5 |
+| 7 | returns route: base versus downside side by side, deltas, rate-shock column | frontend-dev | 4 (or against the pinned shapes, integrating at 8) | with 4 |
+| 8 | dashboard route final wiring (committed book_summary values, SVG imports) | frontend-dev | 4, 6 | with 7 |
+| 9 | docs/methods.md authored to the P4.4 outline plus documentation tests; decision records; npm build and site deploy | 09-documentation, 10-git, orchestrator | 5, 7, 8 | |
+| 10 | Kill gate: full suite green, verify gate green (dash scan over new files), two-build diff clean over three payload files, npm build green, docs updated, phase commit | orchestrator, 10-git | 9 | |
+
+Parallelism notes: slices 1, 2, 5, and 6 own disjoint files and can run concurrently (the backend pair shares the tester but no files with the frontend pair); slice 3 follows 2 (it consumes the covenant results); slice 4 is strictly after 3; slices 7 and 8 may develop against the pinned payload shapes in parallel with 4 and integrate at the kill gate. Spec section 18 kill criterion applies: if the dashboard or methods page slips, ship the covenant and scenario payload surfaces with the omission recorded in the methods page limitations (the case study never cuts, and it is phase 5 anyway).
+
+### P4.10 Verification checklist and risks
+
+- [x] Every component has one owner and one file (P4.0 table).
+- [x] Data flow has no dead ends (P4.0: scenarios.json reaches the browser only as inert SVG; every headline traces to a committed input or a configured band).
+- [x] File structure matches the spec section 7 layout (covenants.py is listed there; scenarios.py is a flagged addition with the same rationale as the config.py addition, recorded in decisions).
+- [x] All technology choices carry rationale and rejected alternatives (P4.0 decisions table plus the per-section pins).
+- [x] Phase integrates cleanly with prior phases: fixtures F1 to F6 untouched, the book hash fixture untouched, canonical serialization unchanged, the phase 2 and 3 payload shapes extended additively, the comparison column shape unchanged per the in-place replacement pin.
+- [x] Risks with mitigations:
+      - Downside IRR semantics: Package A pinned and owner confirmed 2026-11-12 with the alternative recorded; flipping needs one decisions entry and touches only scenarios.py flow assembly.
+      - EBITDA proxy distortion (period CFADS as EBITDA): leverage reads as a coverage proxy; the limit band is a stated assumption and the methods page discloses the proxy; the limit value can move with a decisions entry.
+      - Payload size creep: per-period detail isolated in scenarios.json, summaries only in book.json; the byte-identity gate covers all three files so drift stays loud.
+      - Browser arithmetic creeping into deltas or dashboard counts: every delta and count is a published envelope; the P3.7 format-only boundary is unchanged and the shipped bundle stays auditable.
+      - Breach enum misread as sizing infeasible: a separate enum member with its own decision record and one companion-matrix update in snapshot.py.
+      - Methods compiler output failing the dash scan: the compiler escapes its output, docs/methods.md is scanned as prose, and the kill gate runs the scan over the generated module before the site build.
+      - First-breach month drifting between comparison rows and book.json: both consume the same covenants.py result for the same structure and scenario; test_build asserts agreement between the borrower-level leaf and the comparison cell.

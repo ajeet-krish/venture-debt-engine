@@ -219,3 +219,21 @@ Append-only decision history. New entries are appended at the bottom.
 **Decision**: all Node build scripts under web/scripts use .js (the package.json type module flag makes them ESM anyway), and the Open Graph asset ships as web/public/og.svg referenced by og:image in all six pages; the PNG swap listed in P3.7 lands with the phase 5 screenshots. Owner decision 2026-11-12.
 **Rationale**: the scan must stay fail-closed rather than growing exemptions for tooling defaults; SVG keeps the OG asset reviewable as text and dash-clean.
 **Trade-offs**: some social crawlers historically preferred PNG; acceptable for a portfolio artifact and corrected at phase 5.
+
+## 2026-11-12 - Phase 4: Covenant breach status member
+**Context**: The phase 4 covenant package needs a per-period test outcome distinct from the sizing solver vocabulary; overloading "infeasible" would collide the two meanings.
+**Decision**: the Status enum gains one member, "breach", with no companion requirement (the row's limit, actual, and negative headroom are its evidence). The first-breach month leaf reuses feasible (no breach through the horizon) and not_applicable (no facility or no tested periods) with their existing companions. web payload validation gains the member alongside snapshot.py.
+**Rationale**: infeasible means no solution exists; breach means a tested period fell below its floor; keeping them separate keeps the verify gate's naive recompute unambiguous.
+**Trade-offs**: one enum member ripples through snapshot STATUS_VALUES and the site validator; contained by one decision record.
+
+## 2026-11-12 - Phase 4: scenarios module and scenarios.json payload
+**Context**: Scenario math (downside transforms, RBF rebuild, delta derivation) must stay pure and testable, and per-period covenant rows would multiply book.json by megabytes that every route bundle inlines.
+**Decision**: new module pipeline/src/vdebt/scenarios.py beside build.py (flagged addition like config.py in phase 1); per-period detail published in a third canonical file payloads/<asof>/scenarios.json while book.json carries only nested summary blocks; the byte-identity diff and freshness tests cover all payload files; sync-payloads copies scenarios.json but no route imports it (chart scripts only, inert SVG in the browser).
+**Rationale**: build.py owns envelopes only; book.json stays statically bundleable; determinism mechanics already cover the whole tree.
+**Trade-offs**: a third canonical file and gate SHA256 line; accepted.
+
+## 2026-11-12 - Phase 4: Downside warrant treatment (Package A)
+**Context**: The spec says downside changes warrant value while the plan says term-loan IRR is invariant by construction; these conflict if the revalued warrant sits inside the scenario IRR.
+**Decision**: scenario IRR and MOIC carry the BASE warrant valuation in both scenarios, so term-loan IRR is byte-identical across base and downside (Package A); the revalued warrant (downside factor 0.75, configured) is published as a standalone figure with its own delta and provenance, and the methods page states the transmission rule verbatim. Owner decision 2026-11-12.
+**Rationale**: makes the invariance claim literally verifiable by the phase 5 gate; the equity kicker remains disclosed as a scenario figure rather than mixing channels in the headline metric.
+**Trade-offs**: downside MOIC does not reflect the revalued kicker; disclosed on the methods page. The rejected alternative (scenario-pure flows moving IRR through the warrant channel) is recorded in the architecture P4.2 and flips with one decisions entry if ever adopted.
