@@ -293,7 +293,7 @@ h3 {
   text-align: right;
 }
 
-/* Five task rows: each row is a link to its route */
+/* Five task rows: each row is a link to its route with its answer */
 .task-list {
   margin: var(--space-5) 0 0;
   padding: 0;
@@ -306,11 +306,11 @@ h3 {
 }
 
 .task-list a {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: var(--space-2) var(--space-5);
+  column-gap: var(--space-5);
+  row-gap: var(--space-1);
   min-height: 44px;
   padding: var(--space-4) var(--space-3);
   color: inherit;
@@ -336,6 +336,14 @@ h3 {
   color: var(--ledger-green);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+}
+
+.task-a {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 /* Covenant stamp chips: the signature element */
@@ -551,6 +559,258 @@ h3 {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   word-break: break-all;
+}
+
+/* Route chrome: borrower selector, asof deep link status */
+.selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: var(--wash);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.selector label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.selector select {
+  flex: 1 1 16rem;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+}
+
+.asof-note {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+
+.asof-note.asof-mismatch {
+  color: var(--breach-red);
+  font-weight: 600;
+}
+
+/* Sizing answer: the figure carries the page, the stamp carries the caveat */
+.answer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.answer-id {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.stamp {
+  display: inline-block;
+  margin: var(--space-4) 0 0;
+  padding: 0.4em 0.75em;
+  border: 3px double var(--breach-red);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--breach-red);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-1.2deg);
+}
+
+.stamp-inline {
+  margin: 0 0 0 var(--space-3);
+  transform: rotate(-1.2deg) translateY(2px);
+}
+
+.answer-figure {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-top: 3px double var(--ink);
+  border-radius: var(--radius);
+}
+
+.figure-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.big-figure {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: clamp(1.75rem, 6vw, 2.75rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.figure-note {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Small mono notes: citations, provenance, cell reasons */
+.spec-note,
+.cell-note {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cell-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-note.cite {
+  max-width: 30ch;
+  color: var(--ink);
+  font-style: italic;
+}
+
+/* Comparison table: row headers, band tokens, disclosure, rationale */
+.ledger-table .row-head {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.band-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.band-token {
+  padding: 0.15em 0.45em;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--wash);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+
+.citations .cell-note {
+  max-width: 26ch;
+}
+
+.disclosure {
+  max-width: 52rem;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  background: var(--wash);
+  border-left: 4px solid var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.rationale {
+  max-width: 52rem;
+  padding-top: var(--space-5);
+}
+
+.rationale + .rationale {
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.observed {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--wash);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chart placeholder: honest absence until the build time asset lands */
+.chart-placeholder {
+  margin-top: var(--space-4);
+  padding: var(--space-6) var(--space-5);
+  background: var(--wash);
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.chart-placeholder p {
+  max-width: 44rem;
+  margin: 0 auto;
+  font-size: var(--text-sm);
+}
+
+.chart-placeholder .chart-placeholder-head {
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Build time chart assets: ruled SVG sheets, scrollable when narrow */
+.chart-figure {
+  margin-top: var(--space-4);
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.chart-scroll {
+  overflow-x: auto;
+}
+
+.chart-img {
+  display: block;
+  width: 100%;
+  min-width: 44rem;
+  height: auto;
+}
+
+.chart-note {
+  padding: var(--space-3) var(--space-4);
+  background: var(--wash);
+  border-top: 3px double var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
 }
 
 /* Wider ledger grid from 640px up */

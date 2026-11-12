@@ -15,6 +15,10 @@ patterns are compiled at load, so a bad pattern raises ValueError), and
 [generator] pins the weight tables (each category must sum to exactly 1), the
 derived term parameters, and the [[generator.strata_slots]] recipes (borrower
 ids unique and within SYN-0001 to SYN-0024).
+
+The required [site] table pins the published site presentation: its
+featured_borrower_id must be a slot id in the same SYN-0001 to SYN-0024 book,
+validated with SLOT_ID_PATTERN.
 """
 
 import re
@@ -125,6 +129,18 @@ class GeneratorConfig:
 
 
 @dataclass(frozen=True)
+class SiteConfig:
+    """Published site presentation settings from the required [site] table.
+
+    featured_borrower_id names the borrower featured on the site; it must be
+    a slot id in the SYN-0001 to SYN-0024 book, so SLOT_ID_PATTERN and the
+    SLOT_ID_MIN to SLOT_ID_MAX range apply unchanged.
+    """
+
+    featured_borrower_id: str
+
+
+@dataclass(frozen=True)
 class ScenarioConfig:
     """Fully parsed, pinned scenario configuration."""
 
@@ -142,6 +158,7 @@ class ScenarioConfig:
     solver: SolverParams
     rates: RatesConfig
     generator: GeneratorConfig
+    site: SiteConfig
 
 
 def _reject_floats(node: object, where: str) -> None:
@@ -438,13 +455,39 @@ def _parse_generator(raw: object) -> GeneratorConfig:
     )
 
 
+def _parse_site(raw: object) -> SiteConfig:
+    """Parse the required [site] table into a frozen SiteConfig.
+
+    featured_borrower_id must be a string matching SYN plus four ASCII digits
+    (SLOT_ID_PATTERN, fullmatch so no surrounding text slips through) with a
+    numeric value inside SLOT_ID_MIN to SLOT_ID_MAX. A missing key raises
+    ValueError from _require_key, a wrong type raises TypeError from
+    _require_str, and an out-of-book id raises ValueError here.
+    """
+    where = "site"
+    table = _require_table(raw, where)
+    featured = _require_str(
+        _require_key(table, "featured_borrower_id", where),
+        "site.featured_borrower_id",
+    )
+    match = SLOT_ID_PATTERN.fullmatch(featured)
+    number = int(match.group(1)) if match else None
+    if number is None or not SLOT_ID_MIN <= number <= SLOT_ID_MAX:
+        raise ValueError(
+            "site.featured_borrower_id must be within "
+            f"SYN-0001 to SYN-0024, got {featured!r}"
+        )
+    return SiteConfig(featured_borrower_id=featured)
+
+
 def load_scenario(path: Path) -> ScenarioConfig:
     """Load scenario.toml at path into a frozen ScenarioConfig.
 
     Raises ValueError on any native TOML float, on any band entry missing its
     citation or band key, on a weight table that does not sum to exactly 1, on
     a duplicate or out-of-range strata slot borrower id, on a label pattern
-    that does not compile, and on any malformed or absent required key.
+    that does not compile, on a missing [site] table or an out-of-range
+    site.featured_borrower_id, and on any malformed or absent required key.
     """
     if not isinstance(path, Path):
         raise TypeError(f"path must be a Path, got {type(path).__name__}")
@@ -469,10 +512,12 @@ def load_scenario(path: Path) -> ScenarioConfig:
         _require_key(data, "generator", "scenario"), "generator"
     )
     bands_table = _require_table(_require_key(data, "bands", "scenario"), "bands")
+    site_table = _require_table(_require_key(data, "site", "scenario"), "site")
 
     bands = {name: _parse_band(name, raw) for name, raw in bands_table.items()}
     rates = _parse_rates(rates_table)
     generator = _parse_generator(generator_table)
+    site = _parse_site(site_table)
 
     solver = SolverParams(
         bracket_low=_to_decimal(
@@ -530,4 +575,5 @@ def load_scenario(path: Path) -> ScenarioConfig:
         solver=solver,
         rates=rates,
         generator=generator,
+        site=site,
     )

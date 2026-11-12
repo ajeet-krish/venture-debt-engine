@@ -206,3 +206,6 @@ unit = "months"
 scale = 1
 band = "generator_cash_coverage_15_150_months_of_burn"
 citation = "Venture Debt Engine synthetic generator band per spec section 10.1 (accessed 2026-11-11)"
+
+[site]
+featured_borrower_id = "SYN-0005"

@@ -62,6 +62,13 @@ GENERATOR_BLOCK = (
     "bridge_tenor_months = 3\n"
 )
 
+# The required [site] table for minimal scenarios, so the loader reaches the
+# block under test instead of failing on a missing site section.
+SITE_BLOCK = (
+    "[site]\n"
+    'featured_borrower_id = "SYN-0001"\n'
+)
+
 
 def _minimal_scenario(
     band_lines: list[str],
@@ -99,7 +106,7 @@ def _minimal_scenario(
         "[bands.example]",
     ]
     lines.extend(band_lines)
-    return "\n".join(lines) + "\n" + rates_block + "\n" + generator_block
+    return "\n".join(lines) + "\n" + rates_block + "\n" + generator_block + SITE_BLOCK
 
 
 def test_pinned_top_level_values():

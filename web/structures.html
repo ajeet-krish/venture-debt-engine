@@ -36,26 +36,33 @@
       <p class="eyebrow">Route: structures</p>
       <h1>Structure comparison</h1>
       <p class="lede">
-        Which structure should the lender choose: bullet, interest-only then
-        amortizing, revenue-based, or bridge, compared on identical borrower inputs.
+        Three structures compared on identical committed borrower inputs, with the
+        band citation printed beside every band sourced value and illustrative
+        rationale notes beneath the table.
       </p>
-      <div class="notice" role="note">
-        <p class="notice-head"><span class="chip chip-pending">Phase 3 route</span></p>
-        <p>
-          This page ships with the phase 3 site routes. The comparison table renders
-          here from the committed comparison payload once that payload and the route
-          wiring land. Until then this page shows no figures, because every number on
-          the site must print from a committed payload.
-        </p>
-      </div>
-      <section aria-labelledby="structures-lands">
-        <h2 id="structures-lands">What lands here</h2>
-        <ul class="ruled-list">
-          <li>A comparison table on identical committed borrower inputs</li>
-          <li>Headline block per structure with the binding constraint</li>
-          <li>Illustrative structuring rationale notes with citations</li>
-          <li>Cumulative lender receipts path for the featured borrower</li>
-        </ul>
+      <div data-selector></div>
+      <div data-asof></div>
+      <section aria-labelledby="comparison-title">
+        <h2 id="comparison-title">Comparison</h2>
+        <div data-comparison></div>
+      </section>
+      <section aria-labelledby="rationale-title">
+        <h2 id="rationale-title">Illustrative structuring rationale</h2>
+        <div data-rationale></div>
+      </section>
+      <section aria-labelledby="chart-title">
+        <h2 id="chart-title">Cumulative lender receipts and structure totals</h2>
+        <div data-cashflow-chart>
+          <div class="chart-placeholder" role="note">
+            <p class="chart-placeholder-head">Chart asset absent</p>
+            <p>
+              The build time generated SVG for this section was not produced, so no
+              chart renders here. The path and the bars would be drawn from the
+              committed payload at build time; no path is drawn in the browser and no
+              figure is invented while the asset is absent.
+            </p>
+          </div>
+        </div>
       </section>
     </main>
     <footer class="site-footer">

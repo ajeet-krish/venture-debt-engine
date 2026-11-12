@@ -6,7 +6,7 @@
   "rate_source": "fixture_pinned",
   "_comment": "Hand-computed ground truth for the rate shock case. The bullet facility is priced at base rate plus spread; the shocked case reprices the same facility 200 bp higher with everything else unchanged. The warrant valuation factor 0.15 is a stated assumption, not a market quote. Inputs are pinned test vectors, exempt from band validation. Expected values are already quantized at their storage or metric boundary with ROUND_HALF_UP, exactly as the engine will publish them.",
   "arithmetic": [
-    "step 1: base all_in_rate = base_rate 4.0000 + spread 3.0000 = 8.0000, scale 4 percent_annual, exact sum, no rounding needed.",
+    "step 1: base all_in_rate = base_rate 4.0000 + spread 3.0000 = 7.0000, scale 4 percent_annual, exact sum, no rounding needed.",
     "step 2: rate_shock_bp 200 bp = 2.0000 percent; shocked base_rate = base_rate 4.0000 + 2.0000 = 6.0000, shocked all_in_rate = 6.0000 + spread 3.0000 = 9.0000, scale 4 percent_annual, exact sums, no rounding needed.",
     "step 3: close 2026-01-05 is Monday, a business day; payment date k = roll_forward(add_months(close, k)) for k = 1 to 5; day of month 5 is preserved because every target month has at least day 5, so no clamping occurs in F6; business days are Monday to Friday with no holiday table.",
     "step 4: payment date 1 = add_months(close 2026-01-05, 1) = 2026-02-05 is Thursday, a business day, no roll. Period 1 spans (2026-01-05, 2026-02-05], days_between = 31, ACT/365 year fraction = 31/365.",
@@ -15,30 +15,30 @@
     "step 7: payment date 4 = add_months(close 2026-01-05, 4) = 2026-05-05 is Tuesday, a business day, no roll. Period 4 spans (2026-04-06, 2026-05-05], days_between = 29, ACT/365 year fraction = 29/365.",
     "step 8: payment date 5 = add_months(close 2026-01-05, 5) = 2026-06-05 is Friday, a business day, no roll. Period 5 spans (2026-05-05, 2026-06-05], days_between = 31, ACT/365 year fraction = 31/365.",
     "step 9: the five payment dates 2026-02-05, 2026-03-05, 2026-04-06, 2026-05-05, 2026-06-05 are strictly increasing; days from close to the final payment = 31 + 28 + 32 + 29 + 31 = 151, ACT/365 year fraction close to final payment = 151/365.",
-    "step 10: base period 1 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x facility 100,000,000 cents x 31/365 = 679,452.0547945205479452054794 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 679,452 cents.",
-    "step 11: base period 2 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x facility 100,000,000 cents x 28/365 = 613,698.6301369863013698630137 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 613,699 cents.",
-    "step 12: base period 3 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x facility 100,000,000 cents x 32/365 = 701,369.8630136986301369863014 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 701,370 cents.",
-    "step 13: base period 4 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x facility 100,000,000 cents x 29/365 = 635,616.4383561643835616438356 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 635,616 cents.",
-    "step 14: base period 5 interest = all_in_rate 8.0000 percent_annual / 100 = 0.08 x facility 100,000,000 cents x 31/365 = 679,452.0547945205479452054794 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 679,452 cents.",
+    "step 10: base period 1 interest = all_in_rate 7.0000 percent_annual / 100 = 0.07 x facility 100,000,000 cents x 31/365 = 594,520.5479452054794520547945 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 594,521 cents.",
+    "step 11: base period 2 interest = all_in_rate 7.0000 percent_annual / 100 = 0.07 x facility 100,000,000 cents x 28/365 = 536,986.3013698630136986301370 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 536,986 cents.",
+    "step 12: base period 3 interest = all_in_rate 7.0000 percent_annual / 100 = 0.07 x facility 100,000,000 cents x 32/365 = 613,698.6301369863013698630137 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 613,699 cents.",
+    "step 13: base period 4 interest = all_in_rate 7.0000 percent_annual / 100 = 0.07 x facility 100,000,000 cents x 29/365 = 556,164.3835616438356164383562 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 556,164 cents.",
+    "step 14: base period 5 interest = all_in_rate 7.0000 percent_annual / 100 = 0.07 x facility 100,000,000 cents x 31/365 = 594,520.5479452054794520547945 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 594,521 cents.",
     "step 15: shocked period 1 interest = shocked all_in_rate 9.0000 percent_annual / 100 = 0.09 x facility 100,000,000 cents x 31/365 = 764,383.5616438356164383561644 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 764,384 cents.",
     "step 16: shocked period 2 interest = shocked all_in_rate 9.0000 percent_annual / 100 = 0.09 x facility 100,000,000 cents x 28/365 = 690,410.9589041095890410958904 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 690,411 cents.",
     "step 17: shocked period 3 interest = shocked all_in_rate 9.0000 percent_annual / 100 = 0.09 x facility 100,000,000 cents x 32/365 = 789,041.0958904109589041095890 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 789,041 cents.",
     "step 18: shocked period 4 interest = shocked all_in_rate 9.0000 percent_annual / 100 = 0.09 x facility 100,000,000 cents x 29/365 = 715,068.4931506849315068493151 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 715,068 cents.",
     "step 19: shocked period 5 interest = shocked all_in_rate 9.0000 percent_annual / 100 = 0.09 x facility 100,000,000 cents x 31/365 = 764,383.5616438356164383561644 cents at MONEY_CONTEXT prec 28, quantize to cents with ROUND_HALF_UP once = 764,384 cents.",
     "step 20: bullet structure: principal = 0 cents in periods 1 to 4 and 100,000,000 cents in period 5 in both schedules; opening balance period 1 = facility 100,000,000 cents; opening balance period t equals the prior closing balance; closing balance = opening minus principal gives 100,000,000 cents in periods 1 to 4 and 0 cents in period 5; total_principal = 0 + 0 + 0 + 0 + 100,000,000 = 100,000,000 cents, exact integer sum; the base and shocked schedules share identical balances and principal because only the rate changes.",
-    "step 21: total_interest base = 679,452 + 613,699 + 701,370 + 635,616 + 679,452 = 3,309,589 cents, exact integer sum of the quantized rows, no further rounding.",
+    "step 21: total_interest base = 594,521 + 536,986 + 613,699 + 556,164 + 594,521 = 2,895,891 cents, exact integer sum of the quantized rows, no further rounding.",
     "step 22: total_interest shocked = 764,384 + 690,411 + 789,041 + 715,068 + 764,384 = 3,723,288 cents, exact integer sum of the quantized rows, no further rounding.",
     "step 23: closing_fee = closing_fee_pct 1.00 percent x facility 100,000,000 cents = 1,000,000 cents = 10,000.00 USD, exact product, no rounding needed; lender cash flow at close = fee 1,000,000 minus facility 100,000,000 = -99,000,000 cents, dated 2026-01-05.",
     "step 24: warrant_value = warrant_coverage_pct 2.00 percent / 100 = 0.02 x facility 100,000,000 cents x warrant_valuation_factor 0.15 = 300,000.0000 cents at MONEY_CONTEXT prec 28, single quantize to cents with ROUND_HALF_UP once = 300,000 cents = 3,000.00 USD, cash flow dated at the final payment date 2026-06-05.",
-    "step 25: lender cash flows base: at close 2026-01-05 the lender collects fee 1,000,000 and funds facility 100,000,000, cash flow -99,000,000 cents; at payment dates 1 to 4 the lender receives interest 679,452, 613,699, 701,370, 635,616 cents; at payment date 5 the lender receives interest 679,452 plus principal 100,000,000 plus warrant 300,000 = 100,979,452 cents.",
+    "step 25: lender cash flows base: at close 2026-01-05 the lender collects fee 1,000,000 and funds facility 100,000,000, cash flow -99,000,000 cents; at payment dates 1 to 4 the lender receives interest 594,521, 536,986, 613,699, 556,164 cents; at payment date 5 the lender receives interest 594,521 plus principal 100,000,000 plus warrant 300,000 = 100,894,521 cents.",
     "step 26: IRR year fractions from close, ACT/365 on cumulative day counts 31, 59, 91, 120, 151: 31/365, 59/365, 91/365, 120/365, 151/365.",
-    "step 27: base IRR solves sum_i CF_i x (1 + r)^(-yf_i) = 0 over the base lender cash flows; Decimal bisection with bracket [-0.99, 10.00], midpoint (lo + hi) / 2, sign decisions only, terminated when hi minus lo fell below 0.000001 after 24 iterations, final r = 0.117898202240467071533203125; published base_irr_percent = r x 100 = 11.78982022404670715332031250 quantize to scale 4 percent_annual with ROUND_HALF_UP once = 11.7898.",
-    "step 28: NPV bracket for base_irr_percent 11.7898: at r = (11.7898 minus 0.0001) / 100 = 0.117897 NPV = 44.601523 cents, positive; at r = (11.7898 plus 0.0001) / 100 = 0.117899 NPV = -27.710604 cents, negative; the sign change proves the root lies within the 0.0001 percent tolerance of the published value.",
+    "step 27: base IRR solves sum_i CF_i x (1 + r)^(-yf_i) = 0 over the base lender cash flows; Decimal bisection with bracket [-0.99, 10.00], midpoint (lo + hi) / 2, sign decisions only, terminated when hi minus lo fell below 0.000001 after 24 iterations, final r = 0.106818601191043853759765625; published base_irr_percent = r x 100 = 10.68186011910438537597656250 quantize to scale 4 percent_annual with ROUND_HALF_UP once = 10.6819.",
+    "step 28: NPV bracket for base_irr_percent 10.6819: at r = (10.6819 minus 0.0001) / 100 = 0.106818 NPV = 11.443079 cents, positive; at r = (10.6819 plus 0.0001) / 100 = 0.106820 NPV = -61.712835 cents, negative; the sign change proves the root lies within the 0.0001 percent tolerance of the published value.",
     "step 29: shocked IRR solves the same equation over the shocked lender cash flows; Decimal bisection with bracket [-0.99, 10.00], midpoint (lo + hi) / 2, sign decisions only, terminated when hi minus lo fell below 0.000001 after 24 iterations, final r = 0.129079991877079010009765625; published shocked_irr_percent = r x 100 = 12.90799918770790100097656250 quantize to scale 4 percent_annual with ROUND_HALF_UP once = 12.9080.",
     "step 30: NPV bracket for shocked_irr_percent 12.9080: at r = (12.9080 minus 0.0001) / 100 = 0.129079 NPV = 32.605627 cents, positive; at r = (12.9080 plus 0.0001) / 100 = 0.129081 NPV = -38.873104 cents, negative; the sign change proves the root lies within the 0.0001 percent tolerance of the published value.",
-    "step 31: irr_delta_bp = (shocked_irr_percent 12.9080 minus base_irr_percent 11.7898) x 100 = 111.8200 bp, quantize to scale 1 with ROUND_HALF_UP once = 111.8 bp.",
-    "step 32: sensitivity_per_100bp_irr_bp = irr_delta_bp 111.8 / 2 = 55.9 bp because the rate shock is exactly 200 bp, so the per 100 bp sensitivity is the delta divided by 2, quantize to scale 1 with ROUND_HALF_UP once = 55.9 bp.",
-    "step 33: moic = (total_interest 3,309,589 + total_principal 100,000,000 + warrant_value 300,000) / facility 100,000,000 = 1.03609589, quantize to scale 2 with ROUND_HALF_UP once = 1.04, closing fee excluded from the numerator, computed from the base flows.",
+    "step 31: irr_delta_bp = (shocked_irr_percent 12.9080 minus base_irr_percent 10.6819) x 100 = 222.6100 bp, quantize to scale 1 with ROUND_HALF_UP once = 222.6 bp.",
+    "step 32: sensitivity_per_100bp_irr_bp = irr_delta_bp 222.6 / 2 = 111.3 bp because the rate shock is exactly 200 bp, so the per 100 bp sensitivity is the delta divided by 2, quantize to scale 1 with ROUND_HALF_UP once = 111.3 bp.",
+    "step 33: moic = (total_interest 2,895,891 + total_principal 100,000,000 + warrant_value 300,000) / facility 100,000,000 = 1.03195891, quantize to scale 2 with ROUND_HALF_UP once = 1.03, closing fee excluded from the numerator, computed from the base flows.",
     "step 34: warrant_coverage_pct 2.00 is greater than 0.00, so the warrant is granted and warrant_value publishes as 300000 usd_minor_units; the shock changes no balance, principal, fee, or warrant value, only interest and therefore the lender cash flows and the IRR."
   ],
   "inputs": {
@@ -94,7 +94,7 @@
   },
   "expected": {
     "all_in_rate_base": {
-      "value": "8.0000",
+      "value": "7.0000",
       "unit": "percent_annual",
       "scale": 4
     },
@@ -147,7 +147,7 @@
           "scale": 0
         },
         "interest": {
-          "value": 679452,
+          "value": 594521,
           "unit": "usd_minor_units",
           "scale": 0
         },
@@ -178,7 +178,7 @@
           "scale": 0
         },
         "interest": {
-          "value": 613699,
+          "value": 536986,
           "unit": "usd_minor_units",
           "scale": 0
         },
@@ -209,7 +209,7 @@
           "scale": 0
         },
         "interest": {
-          "value": 701370,
+          "value": 613699,
           "unit": "usd_minor_units",
           "scale": 0
         },
@@ -240,7 +240,7 @@
           "scale": 0
         },
         "interest": {
-          "value": 635616,
+          "value": 556164,
           "unit": "usd_minor_units",
           "scale": 0
         },
@@ -271,7 +271,7 @@
           "scale": 0
         },
         "interest": {
-          "value": 679452,
+          "value": 594521,
           "unit": "usd_minor_units",
           "scale": 0
         },
@@ -462,7 +462,7 @@
           "unit": "date"
         },
         "cash_flow": {
-          "value": 679452,
+          "value": 594521,
           "unit": "usd_minor_units",
           "scale": 0
         }
@@ -473,7 +473,7 @@
           "unit": "date"
         },
         "cash_flow": {
-          "value": 613699,
+          "value": 536986,
           "unit": "usd_minor_units",
           "scale": 0
         }
@@ -484,7 +484,7 @@
           "unit": "date"
         },
         "cash_flow": {
-          "value": 701370,
+          "value": 613699,
           "unit": "usd_minor_units",
           "scale": 0
         }
@@ -495,7 +495,7 @@
           "unit": "date"
         },
         "cash_flow": {
-          "value": 635616,
+          "value": 556164,
           "unit": "usd_minor_units",
           "scale": 0
         }
@@ -506,14 +506,14 @@
           "unit": "date"
         },
         "cash_flow": {
-          "value": 100979452,
+          "value": 100894521,
           "unit": "usd_minor_units",
           "scale": 0
         }
       }
     ],
     "total_interest_base": {
-      "value": 3309589,
+      "value": 2895891,
       "unit": "usd_minor_units",
       "scale": 0
     },
@@ -538,12 +538,12 @@
       "scale": 0
     },
     "moic": {
-      "value": "1.04",
+      "value": "1.03",
       "unit": "multiple",
       "scale": 2
     },
     "base_irr_percent": {
-      "value": "11.7898",
+      "value": "10.6819",
       "unit": "percent_annual",
       "scale": 4
     },
@@ -553,12 +553,12 @@
       "scale": 4
     },
     "irr_delta_bp": {
-      "value": "111.8",
+      "value": "222.6",
       "unit": "bp",
       "scale": 1
     },
     "sensitivity_per_100bp_irr_bp": {
-      "value": "55.9",
+      "value": "111.3",
       "unit": "bp",
       "scale": 1
     }

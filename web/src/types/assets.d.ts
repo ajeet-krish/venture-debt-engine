@@ -13,3 +13,19 @@ declare module "*.json" {
 }
 
 declare module "*.css";
+
+/**
+ * Vite build time asset glob, declared here because tsconfig loads no
+ * Vite client types (types is an empty list). The call is transformed
+ * away at build time: the shipped bundle holds a plain URL string.
+ */
+interface ImportMeta {
+  glob(
+    pattern: string,
+    options?: {
+      readonly eager?: boolean;
+      readonly query?: string;
+      readonly import?: string;
+    },
+  ): Record<string, string>;
+}

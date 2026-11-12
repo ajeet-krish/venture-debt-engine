@@ -10,9 +10,9 @@ the build log content contract (base rate line with asof and series code,
 per-borrower sizing lines in the pinned P2.5 format, strata manifest counts,
 band excursion report), book.json envelope spot checks read straight from the
 committed payload (book hash fixture value, six strata counts, rate
-provenance, borrower block keys, rbf_capped not_applicable schedule, zero
-floats, no wall-clock values), and build_meta.json carrying git_sha plus the
-wall clock while book.json carries neither key name.
+provenance, borrower block keys, kind-tagged schedule union plus returns
+blocks, zero floats, no wall-clock values), and build_meta.json carrying
+git_sha plus the wall clock while book.json carries neither key name.
 
 Four subprocess builds run in this file, numbered in comments at each call
 site: two in the kill gate (heaviest test), one for freshness, one for the
@@ -371,28 +371,73 @@ def test_committed_book_envelope_spot_checks() -> None:
     assert document["rates"]["source_timestamp"] == ASOF
     assert document["rates"]["series"] == SERIES
 
-    # Every borrower publishes the full P2.6 block.
+    # Every borrower publishes the full P3.6 block.
     borrowers = document["borrowers"]
     assert [item["borrower_id"] for item in borrowers] == EXPECTED_BORROWER_IDS
-    required = {"inputs", "paths", "pricing", "sizing", "schedule"}
+    required = {"inputs", "paths", "pricing", "sizing", "schedule", "returns"}
     for borrower in borrowers:
         missing = required - set(borrower)
         assert not missing, (
             f"{borrower['borrower_id']} is missing block keys {sorted(missing)}"
         )
 
-    # At least one rbf_capped borrower publishes the pinned phase 2 schedule
-    # status not_applicable instead of rows.
+    # The schedule is a kind-tagged union (P3.6): feasible borrowers carry
+    # rows under a kind tag (amortizing for bullet, io, and bridge; rbf for
+    # rbf_capped with cap, final cumulative, residual, and status), and only
+    # an infeasible borrower publishes the not_applicable sizing shape (the
+    # phase 2 rbf_capped placeholder reason is retired).
+    kinds = [
+        borrower["schedule"].get("kind") for borrower in borrowers
+    ]
+    assert "amortizing" in kinds, "no amortizing schedule rows published"
+    assert "rbf" in kinds, "no kind-tagged rbf schedule published"
     rbf_borrowers = [b for b in borrowers if b["structure"] == "rbf_capped"]
     assert rbf_borrowers, "no rbf_capped borrower in the committed book"
-    not_applicable = [
-        b
-        for b in rbf_borrowers
-        if b["schedule"].get("status", {}).get("value") == "not_applicable"
-    ]
-    assert not_applicable, (
-        "no rbf_capped borrower publishes schedule status not_applicable"
+    for borrower in rbf_borrowers:
+        schedule = borrower["schedule"]
+        if schedule.get("kind") is None:
+            # Allowed only when sizing is infeasible, with the pinned reason.
+            assert schedule["status"]["value"] == "not_applicable"
+            assert schedule["reason"] == (
+                "facility sizing infeasible so no facility exists to amortize"
+            )
+            continue
+        assert schedule["kind"] == "rbf", (
+            f"{borrower['borrower_id']}: expected kind rbf, got {schedule.get('kind')}"
+        )
+        assert schedule["rows"], "rbf schedule published without rows"
+        assert schedule["status"]["value"] in ("feasible", "shortfall")
+        assert "cap" in schedule and "final_cumulative" in schedule
+        assert "residual" in schedule
+    assert "structure schedule engine lands in phase 3" not in COMMITTED_BOOK_TEXT, (
+        "retired phase 2 schedule placeholder reason reappeared in book.json"
     )
+
+    # Every borrower publishes a returns block: feasible borrowers carry the
+    # status envelope plus values and cash flows, infeasible borrowers only
+    # status not_applicable with a reason (P3.6).
+    for borrower in borrowers:
+        returns = borrower["returns"]
+        status = returns["status"]["value"]
+        if status == "not_applicable":
+            assert returns.get("reason"), (
+                f"{borrower['borrower_id']}: infeasible returns carries no reason"
+            )
+            assert "cash_flows" not in returns, (
+                f"{borrower['borrower_id']}: infeasible returns carries cash flows"
+            )
+            continue
+        assert status == "feasible"
+        for key in ("lender_irr", "moic", "total_receipts", "closing_fee", "warrant", "cash_flows"):
+            assert key in returns, (
+                f"{borrower['borrower_id']}: returns missing {key}"
+            )
+        flows = returns["cash_flows"]
+        assert flows, f"{borrower['borrower_id']}: returns carries no cash flows"
+        dates = [flow["date"]["value"] for flow in flows]
+        assert dates == sorted(dates), (
+            f"{borrower['borrower_id']}: cash flow dates not ascending"
+        )
 
     # Floats are banned anywhere in payloads (canonical writer rule).
     floats = _collect_floats(document, "", [])

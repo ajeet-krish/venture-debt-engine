@@ -37,25 +37,32 @@
       <h1>Facility sizing</h1>
       <p class="lede">
         How big a facility can this borrower service, what binds the answer, and how
-        the facility band cap applies with its citation.
+        the facility band cap applies with its citation. Every figure prints from the
+        committed payload: this page formats values and never computes them.
       </p>
-      <div class="notice" role="note">
-        <p class="notice-head"><span class="chip chip-pending">Phase 3 route</span></p>
-        <p>
-          This page ships with the phase 3 site routes. The borrower selector and the
-          facility table render here from the committed payload once the route wiring
-          lands. Until then this page shows no figures, because every number on the
-          site must print from a committed payload.
-        </p>
-      </div>
-      <section aria-labelledby="sizing-lands">
-        <h2 id="sizing-lands">What lands here</h2>
-        <ul class="ruled-list">
-          <li>Facility amount with the binding constraint that produced it</li>
-          <li>Runway and DSCR floor inputs as configured, never recomputed</li>
-          <li>Facility band cap with its citation and access date</li>
-          <li>Base versus downside headline figures side by side</li>
-        </ul>
+      <div data-selector></div>
+      <div data-asof></div>
+      <section aria-labelledby="answer-title">
+        <h2 id="answer-title">Sizing answer</h2>
+        <div data-sizing-answer></div>
+      </section>
+      <section aria-labelledby="inputs-title">
+        <h2 id="inputs-title">Configured inputs</h2>
+        <div data-sizing-inputs></div>
+      </section>
+      <section aria-labelledby="chart-title">
+        <h2 id="chart-title">Facility against the band cap</h2>
+        <div data-capacity-chart>
+          <div class="chart-placeholder" role="note">
+            <p class="chart-placeholder-head">Chart asset absent</p>
+            <p>
+              The build time generated SVG for this section was not produced, so no
+              chart renders here. The bars would be drawn from the committed payload
+              at build time; nothing is computed in the browser and no figure is
+              invented while the asset is absent.
+            </p>
+          </div>
+        </div>
       </section>
     </main>
     <footer class="site-footer">

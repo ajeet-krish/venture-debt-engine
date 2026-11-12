@@ -38,7 +38,8 @@ the generator's direct output document (borrower inputs and paths only, before
 pricing, sizing, and payload envelopes), so a rate refresh never invalidates
 it. Strata predicates split by data source: pre_revenue and zero_warrant_bank
 are book-only; infeasible_at_zero_draw, runway_bound, and dscr_bound read
-sizing status; rbf_shortfall reads the sized facility from the same mapping.
+sizing status; rbf_shortfall reads the sized facility from the same mapping
+and builds the real RBF schedule for it (phase 3 predicate migration).
 size_facility lands in a later slice, so compute_strata_manifest takes
 sizing_results keyed by borrower_id and skips borrowers absent from it.
 """
@@ -47,6 +48,7 @@ import hashlib
 import random
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from functools import partial
 from typing import NamedTuple
@@ -804,21 +806,32 @@ def predicate_dscr_bound(
     return sorted(members)
 
 
+# Pinned business-day close used only to build payment dates inside the
+# rbf_shortfall predicate. The RBF status depends solely on cumulative
+# remittances against the cap and never on the calendar, so any business
+# day yields identical membership (decisions entry "rbf_shortfall
+# predicate migrates to the real RBF schedule").
+_RBF_PREDICATE_CLOSE: date = date(2026, 1, 5)
+
+
 def predicate_rbf_shortfall(
     book: BorrowerBook, sizing_results: Mapping[str, SizingResult]
 ) -> list[str]:
-    """RBF remittance shortfall over the pinned horizon (architecture P2.2).
+    """RBF remittance shortfall read from the real RBF schedule (P3.1).
 
-    Signature note for slices 7 and 8: this predicate consumes facility_cents
-    from the same sizing_results mapping the status predicates use. A member
-    is an rbf_capped borrower whose projected remittance, the sum of revenue
-    over the first rbf_horizon_periods periods times rbf_remittance_rate_pct,
-    is strictly below rbf_cap times the sized facility cents. Borrowers with
-    no entry or no facility in sizing_results are not counted (sizing has not
-    run yet in this slice). The sized facility is the disclosed phase 2
-    advance proxy; the predicate migrates to the real RBF schedule in phase 3
-    with a decisions entry.
+    A member is an rbf_capped borrower whose sized advance builds an
+    RbfSchedule with status "shortfall": the pinned horizon ends before
+    cumulative remittances reach the cap (decisions entry "rbf_shortfall
+    predicate migrates to the real RBF schedule"). The sized facility stays
+    the disclosed advance proxy. Borrowers with no entry or no facility in
+    sizing_results are not counted (sizing has not run yet in this slice).
+    The schedule import is deferred to this function body: vdebt.schedule
+    imports nothing from vdebt.generator, so a module level import would
+    also be cycle free, but the deferred form keeps the generator's import
+    surface unchanged for readers.
     """
+    from vdebt.schedule import build_rbf_schedule
+
     members: list[str] = []
     for item in book.borrowers:
         if item.structure != "rbf_capped":
@@ -826,15 +839,15 @@ def predicate_rbf_shortfall(
         entry = _sizing_entry(sizing_results, item.borrower_id)
         if entry is None or entry.facility_cents is None:
             continue
-        revenue_sum = sum(item.revenue_path[: book.rbf_horizon_periods])
-        remittance = MONEY_CONTEXT.divide(
-            MONEY_CONTEXT.multiply(Decimal(revenue_sum), book.rbf_remittance_rate_pct),
-            Decimal(100),
+        schedule = build_rbf_schedule(
+            entry.facility_cents,
+            _RBF_PREDICATE_CLOSE,
+            book.rbf_horizon_periods,
+            book.rbf_remittance_rate_pct,
+            item.rbf_cap,
+            item.revenue_path,
         )
-        threshold = MONEY_CONTEXT.multiply(
-            Decimal(entry.facility_cents), item.rbf_cap
-        )
-        if remittance < threshold:
+        if schedule.status == "shortfall":
             members.append(item.borrower_id)
     return sorted(members)
 

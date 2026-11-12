@@ -1,10 +1,12 @@
-"""Canonical payload build orchestration (architecture P2.6).
+"""Canonical payload build orchestration (architecture P2.6, P3.6).
 
-run_build assembles payloads/<asof>/book.json: the committed Valet rate
-snapshot, the seeded 24-borrower book, per-borrower pricing, sizing, and
-structure schedules, validated with snapshot.validate_payload and written
-through snapshot.write_payload. asof is the rate snapshot observation date,
-never the wall clock, so book.json is byte identical across runs;
+run_build assembles payloads/<asof>/book.json and
+payloads/<asof>/comparison.json: the committed Valet rate snapshot, the
+seeded 24-borrower book, per-borrower pricing, sizing, structure schedules,
+returns blocks, and the three-row structure comparison tables, all
+validated with snapshot.validate_payload and written through
+snapshot.write_payload. asof is the rate snapshot observation date, never
+the wall clock, so both payload files are byte identical across runs;
 payloads/build_meta.json (wall clock, git SHA, Python version) is the only
 build output that may differ between two runs and it sits outside the asof
 directory, excluded from byte identity by definition.
@@ -17,20 +19,27 @@ bridge at the pinned tenor) extend the CFADS path with the generator's own
 growth formula, so no borrower is sized on invented cash flows and no
 pre-revenue borrower is charged DSCR on zero CFADS.
 
-Bullet and io_then_straight_line borrowers publish their structure schedule
-rows built through schedule.build_schedule. rbf_capped and bridge publish
-schedule status not_applicable with the pinned phase 3 reason, and an
-infeasible amortizing borrower publishes not_applicable with a sizing reason
-because there is no facility to amortize. The strata manifest is computed
-with every sizing result wired in (adapting sizing.SizingResult to the
-lightweight generator SizingResult the predicates consume), and any stratum
-count below one fails the build with the stratum named.
+Every feasible borrower publishes a kind-tagged structure schedule: bullet
+and io_then_straight_line through schedule.build_schedule, bridge through
+schedule.build_bridge_schedule, and rbf_capped through
+schedule.build_rbf_schedule as kind "rbf" with cap, final cumulative,
+residual, and status. A borrower whose sizing is infeasible has no facility
+to amortize and publishes the not_applicable shape with the sizing reason
+(the phase 2 rbf_capped and bridge placeholder reason is retired). Each
+borrower also gains a returns block: status, lender IRR, MOIC, total
+receipts, closing fee, warrant leaf, and the dated lender cash flows. The
+build then writes comparison.json with one shared block plus three
+comparison rows for each of the 24 borrowers. The strata manifest is
+computed with every sizing result wired in (adapting sizing.SizingResult to
+the lightweight generator SizingResult the predicates consume), and any
+stratum count below one fails the build with the stratum named.
 
-Every numeric leaf in book.json is a metric envelope per architecture section
-6.4: drawn generator inputs carry the generated provenance class plus their
-band citation and band label, derived values carry a derived provenance and
-asof, and every rate figure in the pricing and rates blocks carries the
-snapshot source and source_timestamp (external provenance).
+Every numeric leaf in book.json and comparison.json is a metric envelope
+per architecture section 6.4: drawn generator inputs carry the generated
+provenance class plus their band citation and band label, derived values
+carry a derived provenance and asof, and every rate figure in the pricing,
+rates, and returns blocks carries the snapshot source and source_timestamp
+(external provenance).
 
 Failures are loud: rate manifest and label problems, solver
 non-convergence, zero stratum counts, and schema validation errors raise
@@ -47,11 +56,19 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+from vdebt.compare import (
+    INFEASIBLE_REASON,
+    STRUCTURE_RBF,
+    ComparisonRow,
+    SharedInputs,
+    build_comparison,
+)
 from vdebt.config import Band, ScenarioConfig, load_scenario
 from vdebt.generator import (
     MONTHS_PER_YEAR,
     STRATA_NAMES,
     Borrower,
+    BorrowerBook,
     compute_strata_manifest,
     generate_book,
 )
@@ -65,7 +82,25 @@ from vdebt.pricing import (
     price,
 )
 from vdebt.rates import PERCENT_ANNUAL_SCALE, RateSnapshot, load_rate_snapshot
-from vdebt.schedule import ScheduleRow, build_schedule
+from vdebt.returns import (
+    IRRResult,
+    lender_cash_flows,
+    solve_irr,
+    warrant_value_cents,
+)
+from vdebt.returns import (
+    moic as receipts_moic,
+)
+from vdebt.schedule import (
+    RbfRow,
+    RbfSchedule,
+    Schedule,
+    ScheduleRow,
+    build_bridge_schedule,
+    build_rbf_schedule,
+    build_schedule,
+    closing_fee_cents,
+)
 from vdebt.sizing import SizingInputs, SizingResult, size_facility
 from vdebt.snapshot import envelope, validate_payload, write_payload
 
@@ -77,12 +112,17 @@ DEFAULT_CONFIG_PATH: Path = PIPELINE_DIR / "config" / "scenario.toml"
 DEFAULT_RATES_DIR: Path = PIPELINE_DIR / "data" / "rates"
 DEFAULT_OUTPUT_ROOT: Path = REPO_ROOT / "payloads"
 
-# Canonical artifact names (architecture P2.6 layout decision).
+# Canonical artifact names (architecture P2.6 layout decision, P3.6 second file).
 BOOK_FILE_NAME: str = "book.json"
+COMPARISON_FILE_NAME: str = "comparison.json"
 BUILD_META_FILE_NAME: str = "build_meta.json"
 
-# The two schedule payloads that are not built in phase 2.
-SCHEDULE_NOT_APPLICABLE_REASON: str = "structure schedule engine lands in phase 3"
+# The schedule not_applicable shape now appears only when sizing is
+# infeasible (architecture P3.6): the phase 2 rbf_capped and bridge
+# placeholder reason is retired with the kind-tagged schedule union.
+# compare.INFEASIBLE_REASON ("sizing infeasible so no facility exists to
+# fund") is imported as the shared reason for infeasible returns blocks and
+# comparison cells.
 INFEASIBLE_SCHEDULE_REASON: str = "facility sizing infeasible so no facility exists to amortize"
 
 # DSCR is undefined for a borrower with zero ARR and zero CFADS; the payload
@@ -109,6 +149,7 @@ _DERIVED_BOOK_HASH: str = "derived: sha256 of the canonical generator document"
 _DERIVED_STRATA: str = "derived: strata predicate over the book and sizing results"
 _DERIVED_RUNWAY: str = "derived: (cash minus facility) / net monthly burn"
 _DERIVED_MIN_DSCR: str = "derived: min over periods of CFADS / debt service"
+_DERIVED_BAND_CAP: str = "derived: 50 percent sizing band cap applied to last round"
 _DERIVED_SCHEDULE_PERIOD: str = "derived: schedule period index"
 _DERIVED_SCHEDULE_DATE: str = "derived: roll_forward of add_months from the close date"
 _DERIVED_SCHEDULE_OPENING: str = "derived: opening balance carried from the prior closing balance"
@@ -117,6 +158,31 @@ _DERIVED_SCHEDULE_PRINCIPAL_BULLET: str = "derived: bullet principal repaid at m
 _DERIVED_SCHEDULE_PRINCIPAL_IO: str = "derived: straight-line principal allocation"
 _DERIVED_SCHEDULE_CLOSING: str = "derived: opening balance minus principal"
 _DERIVED_SCHEDULE_STATUS: str = "derived: structure schedule build decision"
+_DERIVED_BRIDGE_PRINCIPAL: str = "derived: bridge principal repaid at maturity"
+_DERIVED_RBF_CAP: str = "derived: RBF cap multiple times the advance"
+_DERIVED_RBF_REVENUE: str = "derived: RBF period revenue from the generator path"
+_DERIVED_RBF_REMITTANCE: str = (
+    "derived: RBF remittance rate times period revenue, capped at the residual"
+)
+_DERIVED_RBF_CUMULATIVE: str = "derived: running sum of quantized RBF remittances"
+_DERIVED_RBF_FINAL_CUMULATIVE: str = "derived: sum of the published RBF remittances"
+_DERIVED_RBF_RESIDUAL: str = "derived: RBF cap minus the final cumulative remittance"
+_DERIVED_RBF_STATUS: str = "derived: RBF cap reached inside the horizon or not"
+_DERIVED_RETURNS_STATUS: str = "derived: returns computed over the structure schedule"
+_DERIVED_TOTAL_INTEREST: str = "derived: sum of schedule period interest"
+_DERIVED_RBF_TOTAL_INTEREST: str = "derived: RBF carries no interest term"
+_DERIVED_RECEIPTS: str = "derived: schedule receipts, interest plus principal or remittances"
+_DERIVED_CLOSING_FEE: str = "derived: closing fee percent times the facility"
+_DERIVED_MOIC: str = "derived: (total receipts plus warrant value) / gross facility"
+_DERIVED_IRR: str = "derived: Decimal bisection of NPV over the dated lender cash flows"
+_DERIVED_CASH_FLOW_DATE: str = "derived: lender cash flow date at close or a payment date"
+_DERIVED_CASH_FLOW: str = "derived: dated lender cash flow aggregated per date"
+_DERIVED_CLOSE: str = "derived: close date from the committed rate snapshot observation date"
+_DERIVED_IO_NA: str = "derived: structure carries no interest-only period"
+_DERIVED_FIRST_BREACH: str = "derived: covenant first-breach placeholder, phase 4 replaces it"
+
+# Published ratio scale for DSCR cells (section 6.4 metric scales).
+_DSCR_SCALE: int = 4
 
 
 class BuildError(RuntimeError):
@@ -143,6 +209,19 @@ def _sizing_provenance(cfg: ScenarioConfig) -> str:
     return (
         f"derived: bisection, runway floor {cfg.runway_floor_months} months, "
         f"DSCR floor {cfg.dscr_floor}"
+    )
+
+
+def _warrant_provenance(cfg: ScenarioConfig) -> str:
+    """Return the warrant provenance naming the fixed factor model (P3.4).
+
+    The string names the stated-assumption model and quotes the pinned
+    valuation factor, so the methods page can render it verbatim beside
+    every warrant value.
+    """
+    return (
+        "derived: warrant fixed factor model, coverage times facility times "
+        f"valuation factor {cfg.warrant_valuation_factor}, stated assumption"
     )
 
 
@@ -439,17 +518,29 @@ def _sizing_document(
 ) -> dict[str, object]:
     """Publish one borrower's sizing outcome following the F1 conventions.
 
-    A feasible result publishes all five fields: status, facility_cents,
-    binding_constraint, post_draw_runway_months, and min_dscr. An infeasible
-    result publishes status plus its binding_constraint only, with no
-    facility value (fixture F1c: a zero-sized facility is never presented as
-    a solution). Pre-revenue borrowers publish min_dscr as a not_applicable
-    status with the companion reason, never a fabricated zero.
+    Every borrower, feasible or not, publishes band_cap: the 50 percent
+    sizing band cap on last round in integer cents with the facility_sizing
+    citation and band label (spec section 12: the sizing page shows the band
+    cap with citation). The cap is a property of the drawn last round, not
+    of feasibility, so an infeasible block carries it too. A feasible result
+    then publishes facility_cents, binding_constraint,
+    post_draw_runway_months, and min_dscr. An infeasible result publishes
+    status plus its binding_constraint only, with no facility value
+    (fixture F1c: a zero-sized facility is never presented as a solution).
+    Pre-revenue borrowers publish min_dscr as a not_applicable status with
+    the companion reason, never a fabricated zero.
     """
     sizing_provenance = _sizing_provenance(cfg)
     document: dict[str, object] = {
         "status": envelope(
             result.status, "status", provenance=sizing_provenance, asof=asof
+        ),
+        "band_cap": envelope(
+            _band_cap_cents(borrower, cfg),
+            "usd_minor_units",
+            provenance=_DERIVED_BAND_CAP,
+            asof=asof,
+            **_band_kwargs(_require_band(cfg, "facility_sizing")),
         ),
     }
     if result.status == "infeasible":
@@ -502,11 +593,12 @@ def _schedule_row_document(
     row: ScheduleRow, borrower: Borrower, asof: str
 ) -> dict[str, object]:
     """Publish one schedule row: period, date, and four money envelopes."""
-    principal_provenance = (
-        _DERIVED_SCHEDULE_PRINCIPAL_BULLET
-        if borrower.structure == "bullet"
-        else _DERIVED_SCHEDULE_PRINCIPAL_IO
-    )
+    if borrower.structure == "bullet":
+        principal_provenance = _DERIVED_SCHEDULE_PRINCIPAL_BULLET
+    elif borrower.structure == "bridge":
+        principal_provenance = _DERIVED_BRIDGE_PRINCIPAL
+    else:
+        principal_provenance = _DERIVED_SCHEDULE_PRINCIPAL_IO
     return {
         "period": envelope(
             row.period, "count", provenance=_DERIVED_SCHEDULE_PERIOD, asof=asof
@@ -544,39 +636,298 @@ def _schedule_row_document(
     }
 
 
-def _schedule_document(
+def _rbf_revenue_path(borrower: Borrower, horizon: int) -> tuple[int, ...]:
+    """Return the revenue path the RBF schedule consumes over the horizon.
+
+    The generator pins rbf_capped term_months to the pinned RBF horizon, so
+    the published path already spans exactly `horizon` periods. A mismatch
+    fails the build loudly rather than silently padding or truncating the
+    money flows the schedule remits from.
+    """
+    path = borrower.revenue_path
+    if len(path) != horizon:
+        raise BuildError(
+            f"{borrower.borrower_id}: RBF revenue path length {len(path)} "
+            f"does not equal the pinned RBF horizon {horizon}"
+        )
+    return path
+
+
+def _structure_schedule(
     borrower: Borrower,
     result: SizingResult,
     pricing: Pricing,
     snapshot: RateSnapshot,
-    asof: str,
-) -> dict[str, object]:
-    """Publish the structure schedule rows or the pinned not_applicable status.
+    cfg: ScenarioConfig,
+) -> Schedule | RbfSchedule | None:
+    """Build the borrower's structure schedule, or None when sizing is infeasible.
 
-    rbf_capped and bridge always publish the phase 3 reason. An amortizing
-    borrower whose sizing is infeasible has no facility to amortize, so it
-    publishes not_applicable with the sizing reason. Everything else builds
-    the canonical schedule through schedule.build_schedule on the borrower's
-    own structure, term, and priced all-in rate at the snapshot close date.
+    bullet and io_then_straight_line go through schedule.build_schedule on
+    the borrower's own structure, term, io months, and priced all-in rate;
+    bridge goes through schedule.build_bridge_schedule at the pinned tenor;
+    rbf_capped goes through schedule.build_rbf_schedule on the sized
+    advance (the disclosed advance proxy) over the pinned horizon with the
+    drawn cap multiple and the generator revenue path (P3.1, P3.2). An
+    infeasible borrower has no facility to amortize, so there is no
+    schedule at all (P3.6).
     """
-    not_applicable = envelope(
-        "not_applicable", "status", provenance=_DERIVED_SCHEDULE_STATUS, asof=asof
-    )
-    if borrower.structure not in _SCHEDULED_STRUCTURES:
-        return {"status": not_applicable, "reason": SCHEDULE_NOT_APPLICABLE_REASON}
     if result.facility_cents is None:
-        return {"status": not_applicable, "reason": INFEASIBLE_SCHEDULE_REASON}
-    schedule = build_schedule(
+        return None
+    facility = result.facility_cents
+    close = snapshot.observation_date
+    if borrower.structure == "rbf_capped":
+        horizon = cfg.generator.rbf_horizon_periods
+        return build_rbf_schedule(
+            facility,
+            close,
+            horizon,
+            cfg.generator.rbf_remittance_rate_pct,
+            borrower.rbf_cap,
+            _rbf_revenue_path(borrower, horizon),
+        )
+    if borrower.structure == "bridge":
+        return build_bridge_schedule(
+            facility,
+            close,
+            cfg.generator.bridge_tenor_months,
+            pricing.all_in_rate,
+        )
+    return build_schedule(
         borrower.structure,
-        result.facility_cents,
-        snapshot.observation_date,
+        facility,
+        close,
         borrower.term_months,
         borrower.io_months,
         pricing.all_in_rate,
     )
+
+
+def _rbf_row_document(row: RbfRow, asof: str) -> dict[str, object]:
+    """Publish one RBF remittance row: period, date, revenue, remittance, cumulative.
+
+    RBF rows carry no interest, principal, or balance keys (the F4 shape):
+    the royalty structure has no interest term, so fabricated zero columns
+    would violate the not_applicable principle.
+    """
     return {
+        "period": envelope(
+            row.period, "count", provenance=_DERIVED_SCHEDULE_PERIOD, asof=asof
+        ),
+        "payment_date": envelope(
+            row.payment_date.isoformat(),
+            "date",
+            provenance=_DERIVED_SCHEDULE_DATE,
+            asof=asof,
+        ),
+        "revenue": envelope(
+            row.revenue_cents, "usd_minor_units", provenance=_DERIVED_RBF_REVENUE, asof=asof
+        ),
+        "remittance": envelope(
+            row.remittance_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_RBF_REMITTANCE,
+            asof=asof,
+        ),
+        "cumulative": envelope(
+            row.cumulative_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_RBF_CUMULATIVE,
+            asof=asof,
+        ),
+    }
+
+
+def _rbf_schedule_document(schedule: RbfSchedule, asof: str) -> dict[str, object]:
+    """Publish the kind-tagged RBF schedule union member (architecture P3.6).
+
+    cap, final_cumulative, and residual are integer cents leaves; status is
+    an envelope whose shortfall companion is the residual key beside it in
+    this document (section 6.4 matrix), while feasible carries no
+    companion.
+    """
+    return {
+        "kind": "rbf",
+        "rows": [_rbf_row_document(row, asof) for row in schedule.rows],
+        "cap": envelope(
+            schedule.cap_cents, "usd_minor_units", provenance=_DERIVED_RBF_CAP, asof=asof
+        ),
+        "final_cumulative": envelope(
+            schedule.final_cumulative_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_RBF_FINAL_CUMULATIVE,
+            asof=asof,
+        ),
+        "residual": envelope(
+            schedule.residual_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_RBF_RESIDUAL,
+            asof=asof,
+        ),
+        "status": envelope(
+            schedule.status, "status", provenance=_DERIVED_RBF_STATUS, asof=asof
+        ),
+    }
+
+
+def _schedule_document(
+    borrower: Borrower,
+    schedule: Schedule | RbfSchedule | None,
+    asof: str,
+) -> dict[str, object]:
+    """Publish the kind-tagged structure schedule union (architecture P3.6).
+
+    A feasible amortizing or bridge borrower publishes {"kind":
+    "amortizing", "rows": [...]}, an rbf_capped borrower publishes {"kind":
+    "rbf", "rows": [...], "cap", "final_cumulative", "residual", "status"},
+    and a borrower whose sizing is infeasible publishes the not_applicable
+    status with the sizing reason: there is no facility to amortize. The
+    phase 2 placeholder reason for rbf_capped and bridge is retired here.
+    """
+    if schedule is None:
+        return {
+            "status": envelope(
+                "not_applicable",
+                "status",
+                provenance=_DERIVED_SCHEDULE_STATUS,
+                asof=asof,
+            ),
+            "reason": INFEASIBLE_SCHEDULE_REASON,
+        }
+    if isinstance(schedule, RbfSchedule):
+        return _rbf_schedule_document(schedule, asof)
+    return {
+        "kind": "amortizing",
         "rows": [
             _schedule_row_document(row, borrower, asof) for row in schedule.rows
+        ],
+    }
+
+
+def _schedule_receipts_cents(schedule: Schedule | RbfSchedule) -> int:
+    """Return total lender receipts: interest plus principal, or remittances.
+
+    An RbfSchedule carries no interest or principal split, so its receipts
+    are the final cumulative remittances; a Schedule's receipts are its
+    interest plus principal totals (the P3.3 receipts basis).
+    """
+    final_cumulative = getattr(schedule, "final_cumulative_cents", None)
+    if final_cumulative is not None:
+        return final_cumulative
+    return schedule.total_interest_cents + schedule.total_principal_cents
+
+
+def _lender_irr_document(
+    irr: IRRResult, snapshot: RateSnapshot, asof: str
+) -> dict[str, object]:
+    """Publish one borrower's lender IRR block (architecture P3.6).
+
+    Shape note: snapshot.validate_payload treats any mapping that carries a
+    "value" key as one envelope, so the P3.6 nested form {status, value}
+    cannot validate (the container would be read as an envelope missing its
+    unit). The published form therefore keeps every pinned P3.6 key while
+    making the lender_irr node itself the percent_annual scale 4 value
+    envelope: the feasible branch attaches the status envelope as a child of
+    the value envelope (external provenance with the rate source and
+    source_timestamp), and the no_solution branch publishes the status
+    envelope plus the reason companion and no value keys (section 6.4
+    matrix).
+    """
+    status = envelope(irr.status, "status", provenance=_DERIVED_IRR, asof=asof)
+    if irr.status == "feasible":
+        if irr.irr_percent is None:
+            raise BuildError("feasible lender IRR carries no published percent value")
+        value_envelope = envelope(
+            format_fixed(irr.irr_percent, PERCENT_ANNUAL_SCALE),
+            "percent_annual",
+            scale=PERCENT_ANNUAL_SCALE,
+            source=snapshot.source,
+            source_timestamp=snapshot.source_timestamp,
+        )
+        value_envelope["status"] = status
+        return value_envelope
+    return {"status": status, "reason": irr.reason}
+
+
+def _returns_document(
+    borrower: Borrower,
+    schedule: Schedule | RbfSchedule | None,
+    snapshot: RateSnapshot,
+    cfg: ScenarioConfig,
+    asof: str,
+) -> dict[str, object]:
+    """Publish one borrower's returns block (architecture P3.6).
+
+    An infeasible borrower publishes status not_applicable with a reason and
+    no cash-flow or value keys. A feasible borrower publishes the status
+    envelope, the lender IRR block, MOIC, total receipts, the closing fee,
+    the warrant leaf (zero coverage carries the not_granted companion on the
+    value leaf, the fixture-pinned asymmetric shape), and the dated lender
+    cash flows in ascending date order straight from
+    returns.lender_cash_flows.
+    """
+    if schedule is None:
+        return {
+            "status": envelope(
+                "not_applicable",
+                "status",
+                provenance=_DERIVED_RETURNS_STATUS,
+                asof=asof,
+            ),
+            "reason": INFEASIBLE_REASON,
+        }
+    if isinstance(schedule, RbfSchedule):
+        facility = schedule.advance_cents
+    else:
+        facility = schedule.facility_cents
+    fee = closing_fee_cents(facility, borrower.closing_fee)
+    warrant = warrant_value_cents(
+        borrower.warrant_coverage, facility, cfg.warrant_valuation_factor
+    )
+    warrant_date = schedule.rows[-1].payment_date
+    flows = lender_cash_flows(schedule, fee, warrant, warrant_date)
+    irr = solve_irr(flows, snapshot.observation_date, cfg.solver)
+    receipts = _schedule_receipts_cents(schedule)
+    row_moic = receipts_moic(receipts, warrant, facility)
+    warrant_leaf = envelope(
+        warrant, "usd_minor_units", provenance=_warrant_provenance(cfg), asof=asof
+    )
+    if warrant == 0:
+        warrant_leaf["status"] = "not_granted"
+    return {
+        "status": envelope(
+            "feasible", "status", provenance=_DERIVED_RETURNS_STATUS, asof=asof
+        ),
+        "lender_irr": _lender_irr_document(irr, snapshot, asof),
+        "moic": envelope(
+            format_fixed(row_moic, 2),
+            "multiple",
+            scale=2,
+            provenance=_DERIVED_MOIC,
+            asof=asof,
+        ),
+        "total_receipts": envelope(
+            receipts, "usd_minor_units", provenance=_DERIVED_RECEIPTS, asof=asof
+        ),
+        "closing_fee": envelope(
+            fee, "usd_minor_units", provenance=_DERIVED_CLOSING_FEE, asof=asof
+        ),
+        "warrant": warrant_leaf,
+        "cash_flows": [
+            {
+                "date": envelope(
+                    flow.flow_date.isoformat(),
+                    "date",
+                    provenance=_DERIVED_CASH_FLOW_DATE,
+                    asof=asof,
+                ),
+                "cash_flow": envelope(
+                    flow.amount_cents,
+                    "usd_minor_units",
+                    provenance=_DERIVED_CASH_FLOW,
+                    asof=asof,
+                ),
+            }
+            for flow in flows
         ],
     }
 
@@ -589,7 +940,13 @@ def _borrower_document(
     cfg: ScenarioConfig,
     asof: str,
 ) -> dict[str, object]:
-    """Assemble one borrower entry of book.json per the P2.6 shape."""
+    """Assemble one borrower entry of book.json per the P3.6 shape.
+
+    The structure schedule builds once and feeds both the schedule union
+    member and the returns block, so the published rows and the published
+    cash flows can never disagree about dates or amounts.
+    """
+    schedule = _structure_schedule(borrower, result, pricing, snapshot, cfg)
     return {
         "borrower_id": borrower.borrower_id,
         "lender_type": borrower.lender_type,
@@ -599,7 +956,291 @@ def _borrower_document(
         "paths": _paths_document(borrower, asof),
         "pricing": _pricing_document(borrower, pricing, snapshot, cfg),
         "sizing": _sizing_document(borrower, result, cfg, asof),
-        "schedule": _schedule_document(borrower, result, pricing, snapshot, asof),
+        "schedule": _schedule_document(borrower, schedule, asof),
+        "returns": _returns_document(borrower, schedule, snapshot, cfg, asof),
+    }
+
+
+def _na_cell(provenance: str, reason: str, asof: str) -> dict[str, object]:
+    """Publish a not_applicable status cell with its reason companion (6.4).
+
+    Comparison rows carry several independently undefined cells, so each
+    cell owns a small {status, reason} object instead of fighting over one
+    sibling reason key in the row.
+    """
+    return {
+        "status": envelope(
+            "not_applicable", "status", provenance=provenance, asof=asof
+        ),
+        "reason": reason,
+    }
+
+
+def _comparison_shared_document(
+    shared: SharedInputs,
+    cfg: ScenarioConfig,
+    asof: str,
+) -> dict[str, object]:
+    """Publish the shared block every comparison row repeats (P3.6).
+
+    close, base rate, and all-in rate come from the committed snapshot with
+    the external rate provenance; the facility and closing fee repeat the
+    canonical sized capacity (or the not_applicable shape when sizing is
+    infeasible, never a fabricated zero); warrant coverage is the drawn
+    band value with its citation and band label.
+    """
+    generated = _generated_provenance(cfg)
+    external = {
+        "source": shared.rate_source,
+        "source_timestamp": shared.rate_source_timestamp,
+    }
+    if shared.facility_cents is None:
+        facility: object = _na_cell(_sizing_provenance(cfg), INFEASIBLE_REASON, asof)
+        fee: object = _na_cell(_sizing_provenance(cfg), INFEASIBLE_REASON, asof)
+    else:
+        facility = envelope(
+            shared.facility_cents,
+            "usd_minor_units",
+            provenance=_sizing_provenance(cfg),
+            asof=asof,
+        )
+        fee = envelope(
+            shared.closing_fee_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_CLOSING_FEE,
+            asof=asof,
+        )
+    return {
+        "close": envelope(
+            shared.close.isoformat(), "date", provenance=_DERIVED_CLOSE, asof=asof
+        ),
+        "base_rate": envelope(
+            format_fixed(shared.base_rate, PERCENT_ANNUAL_SCALE),
+            "percent_annual",
+            scale=PERCENT_ANNUAL_SCALE,
+            **external,
+        ),
+        "all_in_rate": envelope(
+            format_fixed(shared.all_in_rate, PERCENT_ANNUAL_SCALE),
+            "percent_annual",
+            scale=PERCENT_ANNUAL_SCALE,
+            **external,
+        ),
+        "facility": facility,
+        "closing_fee": fee,
+        "warrant_coverage": envelope(
+            format_fixed(shared.warrant_coverage, 2),
+            "percent",
+            scale=2,
+            provenance=generated,
+            asof=asof,
+            **_band_kwargs(_require_band(cfg, "warrant_coverage")),
+        ),
+    }
+
+
+def _comparison_row_document(
+    row: ComparisonRow,
+    borrower: Borrower,
+    cfg: ScenarioConfig,
+    snapshot: RateSnapshot,
+    asof: str,
+) -> dict[str, object]:
+    """Publish one comparison row as envelope cells (architecture P3.5, P3.6).
+
+    A value cell publishes its envelope; a cell compare left None publishes
+    the not_applicable status with its own reason companion. The RBF total
+    interest zero is a contractual zero with the pinned provenance "derived:
+    RBF carries no interest term", first_breach_month is always the phase 4
+    placeholder, and every band-sourced cell carries its citation and band
+    label while band_names lists every band the row draws from.
+    """
+    generated = _generated_provenance(cfg)
+    external = {"source": snapshot.source, "source_timestamp": snapshot.source_timestamp}
+    sizing_provenance = _sizing_provenance(cfg)
+
+    if row.facility_cents is None:
+        facility: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        fee: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        receipts: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        row_moic: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        total_interest: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+    else:
+        facility = envelope(
+            row.facility_cents,
+            "usd_minor_units",
+            provenance=sizing_provenance,
+            asof=asof,
+        )
+        fee = envelope(
+            row.closing_fee_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_CLOSING_FEE,
+            asof=asof,
+        )
+        receipts = envelope(
+            row.total_receipts_cents,
+            "usd_minor_units",
+            provenance=_DERIVED_RECEIPTS,
+            asof=asof,
+        )
+        row_moic = envelope(
+            format_fixed(row.moic, 2),
+            "multiple",
+            scale=2,
+            provenance=_DERIVED_MOIC,
+            asof=asof,
+        )
+        interest_provenance = (
+            _DERIVED_RBF_TOTAL_INTEREST
+            if row.structure == STRUCTURE_RBF
+            else _DERIVED_TOTAL_INTEREST
+        )
+        total_interest = envelope(
+            row.total_interest_cents,
+            "usd_minor_units",
+            provenance=interest_provenance,
+            asof=asof,
+        )
+
+    if row.io_months is not None:
+        io_months: object = envelope(
+            row.io_months,
+            "count",
+            provenance=generated,
+            asof=asof,
+            **_band_kwargs(_require_band(cfg, "interest_only")),
+        )
+    else:
+        io_months = _na_cell(_DERIVED_IO_NA, row.io_months_reason, asof)
+
+    if row.min_dscr is not None:
+        min_dscr: object = envelope(
+            format_fixed(row.min_dscr, _DSCR_SCALE),
+            "ratio",
+            scale=_DSCR_SCALE,
+            provenance=_DERIVED_MIN_DSCR,
+            asof=asof,
+        )
+    else:
+        min_dscr = _na_cell(_DERIVED_MIN_DSCR, row.min_dscr_reason, asof)
+
+    irr_status = envelope(
+        row.irr_status, "status", provenance=_DERIVED_IRR, asof=asof
+    )
+    if row.irr_status == "feasible":
+        if row.irr_percent is None:
+            raise BuildError(
+                f"{borrower.borrower_id}: feasible comparison IRR carries no value"
+            )
+        # Same shape note as build._lender_irr_document: the cell is the
+        # percent_annual value envelope with the status envelope attached as
+        # a child, because a container holding a nested "value" envelope
+        # would be read as an envelope missing its unit.
+        value_envelope = envelope(
+            format_fixed(row.irr_percent, PERCENT_ANNUAL_SCALE),
+            "percent_annual",
+            scale=PERCENT_ANNUAL_SCALE,
+            **external,
+        )
+        value_envelope["status"] = irr_status
+        lender_irr: dict[str, object] = value_envelope
+    else:
+        lender_irr = {"status": irr_status, "reason": row.irr_reason}
+
+    if row.structure == "bridge":
+        term_provenance = _DERIVED_TERM_BRIDGE
+    elif row.structure == STRUCTURE_RBF:
+        term_provenance = _DERIVED_TERM_RBF
+    else:
+        term_provenance = _DERIVED_TERM_AMORTIZING
+
+    return {
+        "structure": row.structure,
+        "facility": facility,
+        "all_in_rate": envelope(
+            format_fixed(row.all_in_rate, PERCENT_ANNUAL_SCALE),
+            "percent_annual",
+            scale=PERCENT_ANNUAL_SCALE,
+            **external,
+        ),
+        "term_months": envelope(
+            row.term_months, "count", provenance=term_provenance, asof=asof
+        ),
+        "io_months": io_months,
+        "total_interest": total_interest,
+        "closing_fee": fee,
+        "lender_irr": lender_irr,
+        "moic": row_moic,
+        "min_dscr": min_dscr,
+        "binding_constraint": row.binding_constraint,
+        "first_breach_month": {
+            "status": envelope(
+                row.first_breach_status,
+                "status",
+                provenance=_DERIVED_FIRST_BREACH,
+                asof=asof,
+            ),
+            "reason": row.first_breach_reason,
+        },
+        "warrant_coverage": envelope(
+            format_fixed(row.warrant_coverage, 2),
+            "percent",
+            scale=2,
+            provenance=generated,
+            asof=asof,
+            **_band_kwargs(_require_band(cfg, "warrant_coverage")),
+        ),
+        "total_receipts": receipts,
+        "band_names": list(row.band_names),
+    }
+
+
+def _comparison_payload(
+    book: BorrowerBook,
+    pricings: dict[str, Pricing],
+    sizings: dict[str, SizingResult],
+    snapshot: RateSnapshot,
+    cfg: ScenarioConfig,
+    asof: str,
+) -> dict[str, object]:
+    """Assemble comparison.json: meta plus one three-row table per borrower.
+
+    All 24 tables rebuild through compare.build_comparison on identical
+    borrower inputs (the disclosed serviceability proxy repeats the
+    canonical facility across the three rows), sorted by borrower_id, with
+    meta.book_sha256 binding the document to the same generator document
+    book.json carries and featured_borrower_id echoed from scenario.toml
+    [site] (decisions entry "comparison.json and featured borrower").
+    """
+    tables: list[dict[str, object]] = []
+    for borrower in sorted(book.borrowers, key=lambda item: item.borrower_id):
+        table = build_comparison(
+            borrower,
+            pricings[borrower.borrower_id],
+            sizings[borrower.borrower_id],
+            snapshot,
+            cfg,
+        )
+        tables.append(
+            {
+                "borrower_id": table.borrower_id,
+                "shared": _comparison_shared_document(table.shared, cfg, asof),
+                "rows": [
+                    _comparison_row_document(row, borrower, cfg, snapshot, asof)
+                    for row in table.rows
+                ],
+            }
+        )
+    return {
+        "meta": {
+            "asof": asof,
+            "book_sha256": envelope(
+                book.book_sha256, "sha256_hex", provenance=_DERIVED_BOOK_HASH, asof=asof
+            ),
+            "featured_borrower_id": cfg.site.featured_borrower_id,
+        },
+        "tables": tables,
     }
 
 
@@ -724,17 +1365,20 @@ def run_build(
     output_root: Path | None = None,
     cfg_path: Path | None = None,
 ) -> int:
-    """Build the canonical book.json payload and return exit status 0.
+    """Build the canonical book.json and comparison.json payloads, exit status 0.
 
     Steps in order: load scenario.toml, load the committed rate snapshot
     (manifest, label, and shape failures propagate loudly), generate the
     book, price and size every borrower, compute and assert the strata
-    manifest, assemble the P2.6 book.json shape, validate it with
-    snapshot.validate_payload (any error prints and fails the build), write
-    it through snapshot.write_payload to <output_root>/<asof>/book.json, and
-    write <output_root>/build_meta.json with the wall clock, git SHA, and
-    Python version. The book itself never reads a clock, so two runs into
-    two trees are byte identical over everything except build_meta.json.
+    manifest, assemble the P3.6 book.json shape (schedule kinds plus
+    returns blocks), validate it with snapshot.validate_payload (any error
+    prints and fails the build), write it through snapshot.write_payload to
+    <output_root>/<asof>/book.json, then assemble and validate
+    comparison.json the same way and write it to
+    <output_root>/<asof>/comparison.json, and finally write
+    <output_root>/build_meta.json with the wall clock, git SHA, and Python
+    version. Neither payload reads a clock, so two runs into two trees are
+    byte identical over everything except build_meta.json.
     """
     root = DEFAULT_OUTPUT_ROOT if output_root is None else Path(output_root)
     config_path = DEFAULT_CONFIG_PATH if cfg_path is None else Path(cfg_path)
@@ -811,6 +1455,24 @@ def run_build(
     book_path = root / asof / BOOK_FILE_NAME
     digest = write_payload(book_path, payload)
     print(f"wrote {book_path} sha256={digest}")
+
+    comparison = _comparison_payload(book, pricings, sizings, snapshot, cfg, asof)
+    comparison_errors = validate_payload(comparison)
+    if comparison_errors:
+        for line in comparison_errors:
+            print(f"comparison payload validation: {line}", file=sys.stderr)
+        raise BuildError(
+            "comparison.json failed payload validation with "
+            f"{len(comparison_errors)} error(s)"
+        )
+    print("comparison payload validation: clean")
+    comparison_path = root / asof / COMPARISON_FILE_NAME
+    comparison_digest = write_payload(comparison_path, comparison)
+    print(f"wrote {comparison_path} sha256={comparison_digest}")
+    print(
+        f"comparison: {len(book.borrowers)} tables "
+        f"featured_borrower_id={cfg.site.featured_borrower_id}"
+    )
 
     meta_path = _write_build_meta(root, REPO_ROOT)
     print(f"wrote {meta_path}")

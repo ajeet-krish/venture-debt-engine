@@ -42,11 +42,11 @@ a lone close outflow from an RBF shortfall borrower with no warrant), and the
 result publishes status no_solution with a reason and no irr_percent; a
 degenerate all-zero flow set gets its own reason. The published irr_percent
 is r x 100 quantized exactly once to percent_annual scale 4 (F6: base
-11.7898, shocked 12.9080).
+10.6819, shocked 12.9080).
 
 MOIC: (receipts_cents + warrant_value_cents) / funded_cents, divided in
 MONEY_CONTEXT and quantized once to multiple scale 2 (F6 step 33:
-103,609,589 / 100,000,000 = 1.03609589 becomes 1.04). receipts are interest
+103,195,891 / 100,000,000 = 1.03195891 becomes 1.03). receipts are interest
 plus principal for amortizing and bridge schedules and total remittances for
 RBF; the closing fee never enters the numerator (decisions entry "MOIC
 numerator excludes closing fee"). schedule.moic stays the F2 to F5 fixture
@@ -54,9 +54,9 @@ surface and returns.moic is the general receipts-based form; a test asserts
 both agree on identical inputs.
 
 Rate-shock helpers: irr_delta_bp is shocked minus base IRR, scaled by 100
-and quantized once to bp scale 1 (F6 step 31: 111.8), and
+and quantized once to bp scale 1 (F6 step 31: 222.6), and
 sensitivity_per_100bp divides that delta by shock_bp / 100 and quantizes once
-to bp scale 1 (F6 step 32: 55.9 at a 200 bp shock).
+to bp scale 1 (F6 step 32: 111.3 at a 200 bp shock).
 
 Depends on the standard library plus vdebt.config, vdebt.dates, vdebt.money,
 vdebt.rates, and vdebt.sizing. No network access anywhere in this module.
@@ -345,7 +345,7 @@ def solve_irr(
     end, so the bracket keeps a sign change at its ends. The loop terminates
     when hi minus lo falls below params.tolerance_decimal ("0.000001") and
     the answer is the final bracket center (lo + hi) / 2 (F6 step 27 basis:
-    24 iterations to r = 0.117898202240467071533203125, published 11.7898).
+    24 iterations to r = 0.106818601191043853759765625, published 10.6819).
     Exceeding params.max_iterations (200) raises vdebt.sizing.SolverError
     printing the bracket: a hard failure, never a silent fallback.
 
@@ -356,7 +356,7 @@ def solve_irr(
     exact zero NPV at a bracket end publishes that end as the root.
 
     irr_percent is r x 100 quantized exactly once to percent_annual scale 4
-    with ROUND_HALF_UP (F6 base 11.7898, shocked 12.9080).
+    with ROUND_HALF_UP (F6 base 10.6819, shocked 12.9080).
     """
     flows = _require_flows(cash_flows)
     if not isinstance(params, SolverParams):
@@ -442,7 +442,7 @@ def moic(receipts_cents: int, warrant_value_cents: int, funded_cents: int) -> De
     never enters the numerator (decisions entry "MOIC numerator excludes
     closing fee"). The division runs in MONEY_CONTEXT and the ratio
     quantizes exactly once with ROUND_HALF_UP to scale 2 (F6 step 33:
-    103,609,589 / 100,000,000 = 1.03609589 becomes 1.04). funded_cents is
+    103,195,891 / 100,000,000 = 1.03195891 becomes 1.03). funded_cents is
     the gross advance, never net of fee, and must be positive.
     schedule.moic stays the F2 to F5 fixture surface and a test asserts both
     forms agree on identical inputs.
@@ -460,8 +460,8 @@ def irr_delta_bp(base_percent: Decimal, shocked_percent: Decimal) -> Decimal:
     """Return shocked minus base IRR in bp, quantized once to scale 1.
 
     The difference is scaled by 100 in MONEY_CONTEXT and quantized exactly
-    once to bp scale 1 (F6 step 31: 12.9080 minus 11.7898 = 1.1182 percent,
-    x 100 = 111.82 bp, becomes 111.8 bp). Both inputs are published IRR
+    once to bp scale 1 (F6 step 31: 12.9080 minus 10.6819 = 2.2261 percent,
+    x 100 = 222.61 bp, becomes 222.6 bp). Both inputs are published IRR
     values at percent_annual scale 4.
     """
     base = _require_decimal(base_percent, "base_percent")
@@ -475,7 +475,7 @@ def sensitivity_per_100bp(delta_bp: Decimal, shock_bp: Decimal) -> Decimal:
     """Return delta_bp / (shock_bp / 100) quantized once to scale 1.
 
     The divisor and division run in MONEY_CONTEXT and the ratio quantizes
-    exactly once to bp scale 1 (F6 step 32: 111.8 / (200.0 / 100) = 55.9 at
+    exactly once to bp scale 1 (F6 step 32: 222.6 / (200.0 / 100) = 111.3 at
     the 200 bp shock, so the per 100 bp sensitivity is delta / 2). shock_bp
     must not be 0: a zero shock has no defined sensitivity and raises
     ValueError instead of a Decimal division failure.

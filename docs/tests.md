@@ -34,3 +34,26 @@ Last updated: 2026-11-11
 | Network confinement | test_rates.py | Only pipeline/scripts/ references urllib (test unskipped after slice 3) |
 
 Notable discoveries: pinned series codes BTB3M/BTB6M returned HTTP 404 on first live probe, corrected to the real TB.CDN.90D.MID/TB.CDN.180D.MID (decisions record 2026-11-11); live Valet observations are nested and descending, reader adapted to latest-date selection; pre-revenue flag now forces ARR to zero per spec 10.1.
+
+## 2026-11-12 - Phase 3: F6 fixture base block corrected to the 7.0000 basis
+
+Last updated: 2026-11-12
+
+| Check | Command | Result |
+|-------|---------|--------|
+| F6 recompute pins | cd pipeline && uv run pytest tests/test_returns.py -q | 10 passed (exit 0) |
+| Full suite | cd pipeline && uv run pytest -q | 176 passed (exit 0; baseline 176) |
+| Lint | cd pipeline && uv run ruff check . | All checks passed (exit 0) |
+| Verify gate | cd pipeline && uv run python -m vdebt verify | GATE RESULT: PASS (exit 0); dash scan 97 files 0 violations, import isolation PASS, fixture validation 6 of 6; F6 SHA256 f33dd930babc73d373b2fc5778140e33bb425c00998bb0f82e1a88f70a012e37 (before: b0ff70777460f29b0dab1f8880e954475b80bfac6b487039d1a28b6b4107db96) |
+| Fixture self-checks (throwaway, deleted after use) | stdlib scratch scripts, never importing vdebt | structural diff vs git HEAD: exactly the 29 allowed paths changed, all shocked and untouched paths byte-identical; 93 arithmetic, envelope, and recomputation checks all PASS |
+
+| Test | Verdict | Notes |
+|------|---------|-------|
+| test_returns.py suite (10 tests) | PASS | new pins: all_in_rate_base 7.0000, base rows 594,521 / 536,986 / 613,699 / 556,164 / 594,521, total_interest_base 2,895,891, final flow 100,894,521, base_irr 10.6819, delta 222.6, sensitivity 111.3, moic 1.03 |
+| Shocked-side pins | PASS | 9.0000, 12.9080, 3,723,288, shocked NPV brackets all unchanged and still passing |
+| Whole pipeline suite | PASS | 176 passed, matching the baseline count |
+| Verify gate | PASS | exit 0, fixture validation 6 of 6, new F6 digest printed |
+
+Coverage summary: the F6 base block now recomputes end to end at the 7.0000 basis from engine code inside pytest (schedule rows, aggregated lender flows, IRR with NPV bracket at published plus and minus the 0.0001 percent tolerance, delta, sensitivity, MOIC), every rewritten fixture arithmetic string was verified arithmetically true against an independent stdlib recomputation (Fraction rows plus a prec-50 Decimal bisection), and the shocked block was proven byte-identical to git HEAD.
+
+Failure analysis: no test failures after the correction. Authoring note for future scratch work: interest must accrue on per-period span days (31, 28, 32, 29, 31) while NPV discounting uses cumulative days from close (31, 59, 91, 120, 151); conflating the two silently produces cumulative nonsense rows. Stale references outside the agreed scope, left for a follow-up decision: pipeline/src/vdebt/returns.py docstrings still quote F6 step 31 as 111.8, step 32 as 55.9, base 11.7898, and the MOIC example 103,609,589 / 100,000,000 = 1.03609589; docs/architecture.md line 1385 still quotes F6 base "8.0000" in the same P3.3 sentence whose two step value quotes were updated, and the P3.8 test plan bullet still says irr_delta_bp 111.8 and sensitivity 55.9.

@@ -123,9 +123,11 @@ export interface Pricing {
   readonly band_excursion: string;
 }
 
-/** Sizing outputs: status envelope, facility, binding constraint, floors. */
+/** Sizing outputs: status envelope, band cap, facility, constraint, floors. */
 export interface Sizing {
   readonly status: Envelope;
+  /** Published for every borrower, feasible or not (spec section 12). */
+  readonly band_cap?: Envelope;
   readonly facility_cents: Envelope;
   readonly binding_constraint: string;
   readonly post_draw_runway_months: Envelope;
@@ -138,8 +140,9 @@ export interface ScheduleRow {
   readonly [field: string]: Envelope;
 }
 
-/** A structure schedule with published rows. */
+/** A structure schedule with published rows (kind tagged: amortizing or rbf). */
 export interface ScheduleWithRows {
+  readonly kind?: string;
   readonly rows: readonly ScheduleRow[];
 }
 
@@ -150,6 +153,31 @@ export interface ScheduleNotApplicable {
 }
 
 export type Schedule = ScheduleWithRows | ScheduleNotApplicable;
+
+/** One dated lender cash flow from the published returns block. */
+export interface ReturnsCashFlow {
+  readonly date: Envelope;
+  readonly cash_flow: Envelope;
+}
+
+/** The feasible returns block: every figure plus the dated cash flows. */
+export interface ReturnsFeasible {
+  readonly status: Envelope;
+  readonly lender_irr: Envelope;
+  readonly moic: Envelope;
+  readonly total_receipts: Envelope;
+  readonly closing_fee: Envelope;
+  readonly warrant: Envelope;
+  readonly cash_flows: readonly ReturnsCashFlow[];
+}
+
+/** The infeasible returns block: status plus reason, no figures at all. */
+export interface ReturnsNotApplicable {
+  readonly status: Envelope;
+  readonly reason: string;
+}
+
+export type ReturnsBlock = ReturnsFeasible | ReturnsNotApplicable;
 
 /** One committed borrower record. */
 export interface Borrower {
@@ -162,6 +190,7 @@ export interface Borrower {
   readonly pricing: Pricing;
   readonly sizing: Sizing;
   readonly schedule: Schedule;
+  readonly returns: ReturnsBlock;
 }
 
 /** The canonical book.json document. */
@@ -469,6 +498,11 @@ function assertBorrower(node: unknown, path: string): void {
   if ("reason" in sizing) {
     requireString(sizing.reason, `${path}.sizing.reason`);
   }
+  if ("band_cap" in sizing) {
+    // Published for every borrower, feasible or not; validated when present
+    // so a payload that drops it degrades to an absent figure, not a crash.
+    requireEnvelopeShape(requireKey(sizing, "band_cap", `${path}.sizing`), `${path}.sizing.band_cap`);
+  }
   const sizingStatus = requireEnvelopeShape(requireKey(sizing, "status", `${path}.sizing`), `${path}.sizing.status`);
   const statusValue = sizingStatus.value;
   if (statusValue === "feasible") {
@@ -501,6 +535,47 @@ function assertBorrower(node: unknown, path: string): void {
   } else {
     requireEnvelopeShape(requireKey(schedule, "status", `${path}.schedule`), `${path}.schedule.status`);
     requireString(requireKey(schedule, "reason", `${path}.schedule`), `${path}.schedule.reason`);
+  }
+
+  // Returns block (architecture P3.6): feasible publishes figures plus the
+  // dated cash flows; not_applicable publishes status plus reason only.
+  const returns = requireKey(borrower, "returns", path);
+  if (!isRecord(returns)) {
+    fail(`${path}.returns`, "expected an object");
+  }
+  const returnsStatus = requireEnvelopeShape(
+    requireKey(returns, "status", `${path}.returns`),
+    `${path}.returns.status`,
+  );
+  if (returnsStatus.unit !== "status") {
+    fail(`${path}.returns.status`, `expected "status" unit, found ${JSON.stringify(returnsStatus.unit)}`);
+  }
+  if (returnsStatus.value === "feasible") {
+    for (const name of ["lender_irr", "moic", "total_receipts", "closing_fee", "warrant"] as const) {
+      requireEnvelopeShape(requireKey(returns, name, `${path}.returns`), `${path}.returns.${name}`);
+    }
+    const flows = requireArray(
+      requireKey(returns, "cash_flows", `${path}.returns`),
+      `${path}.returns.cash_flows`,
+    );
+    if (flows.length === 0) {
+      fail(`${path}.returns.cash_flows`, "expected at least one dated cash flow");
+    }
+    flows.forEach((flow, index) => {
+      const flowPath = `${path}.returns.cash_flows[${index}]`;
+      if (!isRecord(flow)) {
+        fail(flowPath, "expected an object with date and cash_flow");
+      }
+      requireEnvelopeShape(requireKey(flow, "date", flowPath), `${flowPath}.date`);
+      requireEnvelopeShape(requireKey(flow, "cash_flow", flowPath), `${flowPath}.cash_flow`);
+    });
+  } else if (returnsStatus.value === "not_applicable") {
+    requireString(requireKey(returns, "reason", `${path}.returns`), `${path}.returns.reason`);
+  } else {
+    fail(
+      `${path}.returns.status`,
+      `unknown returns status ${JSON.stringify(returnsStatus.value)}; expected "feasible" or "not_applicable"`,
+    );
   }
 }
 
@@ -535,5 +610,172 @@ export function assertBuildMetaShape(data: unknown): asserts data is BuildMeta {
 /** Validate and narrow a parsed build_meta.json import. */
 export function loadBuildMeta(raw: unknown): BuildMeta {
   assertBuildMetaShape(raw);
+  return raw;
+}
+
+/* comparison.json (architecture P3.5 and P3.6).
+ *
+ * Same contract as the book: shape only, never magnitudes. A cell is
+ * either a published envelope or a status cell (status envelope plus the
+ * reason companion that section 6.4 requires).
+ */
+
+/** A cell that publishes a status instead of a figure, with its reason. */
+export interface StatusCell {
+  readonly status: Envelope;
+  readonly reason: string;
+}
+
+/** Any comparison cell: a figure envelope or a status cell. */
+export type ComparisonCell = Envelope | StatusCell;
+
+/** Terms shared by the three structure rows of one borrower table. */
+export interface ComparisonShared {
+  readonly close: Envelope;
+  readonly base_rate: Envelope;
+  readonly all_in_rate: Envelope;
+  readonly facility: ComparisonCell;
+  readonly closing_fee: ComparisonCell;
+  readonly warrant_coverage: Envelope;
+}
+
+/** One structure row: spec section 10.6 columns as committed envelopes. */
+export interface ComparisonRow {
+  readonly structure: string;
+  readonly binding_constraint: string;
+  readonly band_names: readonly string[];
+  readonly facility: ComparisonCell;
+  readonly all_in_rate: Envelope;
+  readonly term_months: Envelope;
+  readonly io_months: ComparisonCell;
+  readonly total_interest: ComparisonCell;
+  readonly closing_fee: ComparisonCell;
+  readonly lender_irr: ComparisonCell;
+  readonly moic: ComparisonCell;
+  readonly min_dscr: ComparisonCell;
+  readonly first_breach_month: StatusCell;
+  readonly warrant_coverage: Envelope;
+  readonly total_receipts: ComparisonCell;
+}
+
+/** One borrower's three-row comparison table plus its shared terms. */
+export interface ComparisonTable {
+  readonly borrower_id: string;
+  readonly shared: ComparisonShared;
+  readonly rows: readonly ComparisonRow[];
+}
+
+/** The comparison meta block: asof, book binding hash, featured id. */
+export interface ComparisonMeta {
+  readonly asof: string;
+  readonly book_sha256: Envelope;
+  readonly featured_borrower_id: string;
+}
+
+/** The canonical comparison.json document. */
+export interface Comparison {
+  readonly meta: ComparisonMeta;
+  readonly tables: readonly ComparisonTable[];
+}
+
+/** True when a cell publishes a status plus reason rather than a figure. */
+export function isStatusCell(cell: ComparisonCell): cell is StatusCell {
+  return "reason" in cell && "status" in cell;
+}
+
+function assertComparisonCell(node: unknown, path: string): void {
+  if (isRecord(node) && "status" in node && "reason" in node) {
+    const status = requireEnvelopeShape(node.status, `${path}.status`);
+    if (status.unit !== "status") {
+      fail(`${path}.status`, `expected "status" unit, found ${JSON.stringify(status.unit)}`);
+    }
+    requireString(node.reason, `${path}.reason`);
+    return;
+  }
+  const envelope = requireEnvelopeShape(node, path);
+  validateEnvelopeLeaves(envelope, path);
+}
+
+function assertComparisonRow(node: unknown, path: string): void {
+  const row = isRecord(node) ? node : fail(path, "expected an object");
+  requireString(requireKey(row, "structure", path), `${path}.structure`);
+  requireString(requireKey(row, "binding_constraint", path), `${path}.binding_constraint`);
+  const bands = requireArray(requireKey(row, "band_names", path), `${path}.band_names`);
+  bands.forEach((band, index) => requireString(band, `${path}.band_names[${index}]`));
+  for (const name of [
+    "facility",
+    "io_months",
+    "total_interest",
+    "closing_fee",
+    "lender_irr",
+    "moic",
+    "min_dscr",
+    "warrant_coverage",
+    "total_receipts",
+    "all_in_rate",
+    "term_months",
+  ] as const) {
+    assertComparisonCell(requireKey(row, name, path), `${path}.${name}`);
+  }
+  const breach = requireKey(row, "first_breach_month", path);
+  if (!isRecord(breach) || !("status" in breach) || !("reason" in breach)) {
+    fail(`${path}.first_breach_month`, "expected a status cell with a reason companion");
+  }
+  assertComparisonCell(breach, `${path}.first_breach_month`);
+}
+
+/** Assert the full comparison.json shape; throws with a precise path. */
+export function assertComparisonShape(data: unknown): asserts data is Comparison {
+  const root = isRecord(data) ? data : fail("comparison", "expected a JSON object");
+  const metaNode = requireKey(root, "meta", "comparison");
+  if (!isRecord(metaNode)) {
+    fail("comparison.meta", "expected an object");
+  }
+  const meta = metaNode;
+  const asof = requireString(requireKey(meta, "asof", "comparison.meta"), "comparison.meta.asof");
+  if (!ISO_DATE.test(asof)) {
+    fail("comparison.meta.asof", `asof ${JSON.stringify(asof)} is not an ISO date (YYYY-MM-DD)`);
+  }
+  const bookSha = requireEnvelopeShape(
+    requireKey(meta, "book_sha256", "comparison.meta"),
+    "comparison.meta.book_sha256",
+  );
+  validateEnvelopeLeaves(bookSha, "comparison.meta.book_sha256");
+  if (bookSha.unit !== "sha256_hex") {
+    fail("comparison.meta.book_sha256.unit", `expected "sha256_hex", found ${JSON.stringify(bookSha.unit)}`);
+  }
+  requireString(
+    requireKey(meta, "featured_borrower_id", "comparison.meta"),
+    "comparison.meta.featured_borrower_id",
+  );
+
+  const tables = requireArray(requireKey(root, "tables", "comparison"), "comparison.tables");
+  if (tables.length === 0) {
+    fail("comparison.tables", "expected at least one borrower table");
+  }
+  tables.forEach((table, index) => {
+    const tablePath = `comparison.tables[${index}]`;
+    const entry = isRecord(table) ? table : fail(tablePath, "expected an object");
+    requireString(requireKey(entry, "borrower_id", tablePath), `${tablePath}.borrower_id`);
+    const shared = requireKey(entry, "shared", tablePath);
+    if (!isRecord(shared)) {
+      fail(`${tablePath}.shared`, "expected an object");
+    }
+    for (const name of ["close", "base_rate", "all_in_rate", "facility", "closing_fee", "warrant_coverage"] as const) {
+      requireKey(shared, name, `${tablePath}.shared`);
+      assertComparisonCell(requireKey(shared, name, `${tablePath}.shared`), `${tablePath}.shared.${name}`);
+    }
+    const rows = requireArray(requireKey(entry, "rows", tablePath), `${tablePath}.rows`);
+    if (rows.length !== 3) {
+      fail(`${tablePath}.rows`, `expected the three pinned comparison rows, found ${rows.length}`);
+    }
+    rows.forEach((row, rowIndex) => assertComparisonRow(row, `${tablePath}.rows[${rowIndex}]`));
+  });
+  walkShape(root, "comparison");
+}
+
+/** Validate and narrow a parsed comparison.json import. */
+export function loadComparison(raw: unknown): Comparison {
+  assertComparisonShape(raw);
   return raw;
 }

@@ -1,12 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="og-title og-desc">
   <title id="og-title">Venture Debt Engine, venture debt sizing and lender returns</title>
-  <desc id="og-desc">Placeholder Open Graph image carrying the product name and subtitle. The spec og.png with phase 5 screenshots replaces this file and the head tags swap to it.</desc>
-  <rect width="1200" height="630" fill="#16233b"/>
-  <rect x="56" y="56" width="1088" height="518" fill="none" stroke="#c6cfd6" stroke-width="2"/>
-  <rect x="56" y="56" width="1088" height="10" fill="#0b6e4f"/>
-  <text x="112" y="190" fill="#c6cfd6" font-family="Menlo, Consolas, monospace" font-size="26" letter-spacing="6">COMMITTED BORROWER BOOK, PUBLIC RATE SNAPSHOT</text>
-  <text x="112" y="330" fill="#f3f5f6" font-family="Charter, Georgia, serif" font-size="98" font-weight="700">Venture Debt Engine</text>
-  <text x="112" y="410" fill="#c6cfd6" font-family="Menlo, Consolas, monospace" font-size="40">Venture debt sizing and lender returns</text>
-  <line x1="112" y1="470" x2="1088" y2="470" stroke="#c6cfd6" stroke-width="1"/>
-  <text x="112" y="530" fill="#c6cfd6" font-family="Charter, Georgia, serif" font-size="30" font-style="italic">Illustrative sizing tool, not credit approval.</text>
+  <desc id="og-desc">Open Graph image for the Venture Debt Engine site. The product name and subtitle sit on ruled ledger paper under a navy header band, a small schematic facility against band cap bar motif sits at the lower right, and a red stamp reads Illustrative sizing, not credit approval.</desc>
+  <rect width="1200" height="630" fill="#f3f5f6"/>
+  <g stroke="#e7ecef" stroke-width="1">
+    <line x1="0" y1="126" x2="1200" y2="126"/>
+    <line x1="0" y1="168" x2="1200" y2="168"/>
+    <line x1="0" y1="210" x2="1200" y2="210"/>
+    <line x1="0" y1="252" x2="1200" y2="252"/>
+    <line x1="0" y1="294" x2="1200" y2="294"/>
+    <line x1="0" y1="336" x2="1200" y2="336"/>
+    <line x1="0" y1="378" x2="1200" y2="378"/>
+    <line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="462" x2="1200" y2="462"/>
+    <line x1="0" y1="504" x2="1200" y2="504"/>
+    <line x1="0" y1="546" x2="1200" y2="546"/>
+    <line x1="0" y1="588" x2="1200" y2="588"/>
+  </g>
+  <rect width="1200" height="84" fill="#16233b"/>
+  <rect x="64" y="22" width="52" height="40" fill="none" stroke="#c6cfd6" stroke-width="1.5"/>
+  <text x="90" y="49" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="18" letter-spacing="2" fill="#f3f5f6">VDE</text>
+  <text x="136" y="51" font-family="Menlo, Consolas, monospace" font-size="22" letter-spacing="5" fill="#f3f5f6">VENTURE DEBT ENGINE</text>
+  <text x="1120" y="50" text-anchor="end" font-family="Menlo, Consolas, monospace" font-size="15" letter-spacing="3" fill="#c6cfd6">COMMITTED BORROWER BOOK, PUBLIC RATE SNAPSHOT</text>
+  <text x="80" y="250" font-family="Charter, Bitstream Charter, Georgia, serif" font-size="92" font-weight="700" fill="#16233b">Venture Debt Engine</text>
+  <text x="80" y="316" font-family="Menlo, Consolas, monospace" font-size="34" fill="#16233b">Venture debt sizing and lender returns</text>
+  <line x1="80" y1="350" x2="1120" y2="350" stroke="#16233b" stroke-width="2"/>
+  <text x="80" y="392" font-family="Menlo, Consolas, monospace" font-size="20" fill="#16233b">A portfolio demonstration of venture debt structuring and lender returns</text>
+  <text x="80" y="424" font-family="Menlo, Consolas, monospace" font-size="20" fill="#16233b">on synthetic borrowers and public rate data</text>
+  <g transform="rotate(-3 450 513)">
+    <rect x="80" y="470" width="740" height="86" fill="none" stroke="#9e2b25" stroke-width="3"/>
+    <rect x="87" y="477" width="726" height="72" fill="none" stroke="#9e2b25" stroke-width="1"/>
+    <text x="450" y="522" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="24" letter-spacing="2.5" fill="#9e2b25">ILLUSTRATIVE SIZING, NOT CREDIT APPROVAL</text>
+  </g>
+  <g stroke="#c6cfd6" stroke-width="1">
+    <line x1="860" y1="440" x2="1120" y2="440"/>
+    <line x1="860" y1="480" x2="1120" y2="480"/>
+    <line x1="860" y1="520" x2="1120" y2="520"/>
+  </g>
+  <line x1="860" y1="560" x2="1120" y2="560" stroke="#16233b" stroke-width="2"/>
+  <rect x="900" y="506" width="60" height="54" fill="#0b6e4f"/>
+  <rect x="1010" y="450" width="60" height="110" fill="#16233b"/>
+  <text x="930" y="586" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="15" fill="#16233b">facility</text>
+  <text x="1040" y="586" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="15" fill="#16233b">band cap</text>
 </svg>

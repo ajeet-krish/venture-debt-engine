@@ -207,3 +207,15 @@ Append-only decision history. New entries are appended at the bottom.
 **Decision**: the compare mode (engine fixture outputs in pipeline/build/fixtures/ plus runner comparison) lands with the phase 5 full verify gate; phase 3 recompute runs in pytest against engine code for F1 to F6.
 **Rationale**: the pin admits later phases; keeping phase 3 focused protects the site-live-by-phase-end acceptance.
 **Trade-offs**: one gate surface is late; deferred to phase 5 by the orchestrator, 2026-11-11.
+
+## 2026-11-12 - Phase 3: F6 fixture base block corrected to the 7.0000 basis
+**Context**: The original authoring instruction for F6 computed the base expected block at an 8.0000 all-in rate even though the fixture inputs always summed to 7.0000 (base_rate 4.0000 plus spread 3.0000), and arithmetic step 1 even stated the false equation "4.0000 + 3.0000 = 8.0000". The shocked block at 9.0000 (shocked base 6.0000 plus spread 3.0000) was internally consistent with a true 200 bp move over the stated inputs, so only the base expected block was wrong.
+**Decision**: the base expected block is recomputed by hand at the 7.0000 basis (scratch script, standard library decimal and datetime only, never derived from engine output): all_in_rate_base "7.0000", base schedule rows, total_interest_base 2,895,891 cents, lender_cash_flows_base, base_irr_percent 10.6819, irr_delta_bp 222.6, sensitivity_per_100bp 111.3, and moic 1.03; the shocked block stays byte-identical; every affected arithmetic string is rewritten so each stated equation is true; the test_returns.py pins move to the new values and the two F6 step 31 and step 32 value quotes in architecture P3.3 follow.
+**Rationale**: owner approved; the fixture arithmetic must be true; the sensitivity divisor is derived from rate_shock_bp 200 over 100, and the base-to-shocked move is now genuinely 200 bp (7.0000 to 9.0000), so the division by 2 is consistent with the actual move.
+**Trade-offs**: the F6 SHA256 digest changes; golden fixtures remain hand-computed and are never regenerated from engine output.
+
+## 2026-11-12 - Phase 3: Web scripts use .js and the OG asset is SVG
+**Context**: Architecture P3.7 names the chart scripts with a .mjs extension and the Open Graph asset as og.png, but the pinned dash-scan file-type table has no .mjs class (unclassified extensions fail the scan by design) and the project cannot author binary PNG images.
+**Decision**: all Node build scripts under web/scripts use .js (the package.json type module flag makes them ESM anyway), and the Open Graph asset ships as web/public/og.svg referenced by og:image in all six pages; the PNG swap listed in P3.7 lands with the phase 5 screenshots. Owner decision 2026-11-12.
+**Rationale**: the scan must stay fail-closed rather than growing exemptions for tooling defaults; SVG keeps the OG asset reviewable as text and dash-clean.
+**Trade-offs**: some social crawlers historically preferred PNG; acceptable for a portfolio artifact and corrected at phase 5.

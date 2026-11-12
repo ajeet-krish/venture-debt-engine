@@ -28,6 +28,9 @@ export default defineConfig({
     modulePreload: {
       polyfill: false,
     },
+    // Chart SVGs ship as files rather than inlined data URIs, so the built
+    // site carries them as inspectable assets under dist/assets/.
+    assetsInlineLimit: 0,
     rollupOptions: {
       input,
     },
