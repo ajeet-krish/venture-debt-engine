@@ -58,3 +58,23 @@ Coverage summary: the F6 base block now recomputes end to end at the 7.0000 basi
 
 Failure analysis: no test failures after the correction. Authoring note for future scratch work: interest must accrue on per-period span days (31, 28, 32, 29, 31) while NPV discounting uses cumulative days from close (31, 59, 91, 120, 151); conflating the two silently produces cumulative nonsense rows. Stale references outside the agreed scope, left for a follow-up decision: pipeline/src/vdebt/returns.py docstrings still quote F6 step 31 as 111.8, step 32 as 55.9, base 11.7898, and the MOIC example 103,609,589 / 100,000,000 = 1.03609589; docs/architecture.md line 1385 still quotes F6 base "8.0000" in the same P3.3 sentence whose two step value quotes were updated, and the P3.8 test plan bullet still says irr_delta_bp 111.8 and sensitivity 55.9.
 F6 stale-reference follow-up: the returns.py docstring and docs/architecture.md P3.3 and P3.8 quote corrections listed above landed in commit cf205fd; the stale list is historical.
+
+## Phase 3 (RBF and bridge schedules, returns, comparison, payloads, site shell)
+
+Last updated: 2026-11-12
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Full suite | cd pipeline && uv run pytest -q | 187 passed (exit 0) |
+| Lint | cd pipeline && uv run ruff check . | All checks passed (exit 0) |
+| Verify gate | cd pipeline && uv run python -m vdebt verify | GATE RESULT: PASS (exit 0); dash scan 105 files 0 violations, import isolation PASS, fixture validation 6 of 6 |
+| F4 RBF recompute | test_schedule.py | Both cases exact to the cent plus synthetic early-cap and pre-revenue invariant cases |
+| F5 bridge recompute | test_schedule.py | Interest 1,463,014 and repayment 51,463,014 exact; month-end clamp cases pass |
+| F6 returns recompute (corrected basis) | test_returns.py | Base IRR 10.6819 and shocked 12.9080 within 0.0001 percent with NPV brackets; delta 222.6 bp; sensitivity 111.3 bp; moic 1.03 |
+| Comparison acceptance | test_compare.py | 11 tests: identical shared inputs across three rows, citations with access dates, facility repetition, census of 24 tables, meta book_sha256 binding, infeasible status leaves |
+| Byte identity over both payloads | test_build.py plus manual | Two-build diff clean excluding build_meta.json; committed book.json and comparison.json equal a fresh build |
+| Site build | cd web && npm run build | Exit 0: sync, chart generation (byte-stable across two runs), tsc, vite; six pages; no chunk warning |
+| Site live (spec kill criterion) | HTTP GET on the Pages URL | 200; framing line present on the landing page; Site workflow run completed success in 31 seconds |
+| Zero-arithmetic audit of shipped JS | grep audits over dist | No Math, no parseInt or parseFloat, no fetch, no reduction over payload values; charts generated in Node only; framing line present on all six pages |
+
+Notable: fixture F6 base block corrected to the 7.0000 basis per owner decision (arithmetic strings now true, shocked block untouched, decisions record 2026-11-12); stale references corrected in returns.py docstrings and architecture quotes (this section's earlier failure-analysis list is historical).

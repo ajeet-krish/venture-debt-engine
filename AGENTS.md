@@ -38,8 +38,8 @@
 | 0 | Repo bootstrap | Complete |
 | 1 | Domain model and golden fixtures | Complete |
 | 2 | Generator, rates, pricing, schedules, sizing | Complete |
-| 3 | Structures, returns, comparison, site shell | In Progress |
-| 4 | Covenants, scenarios, dashboard, methods | Pending |
+| 3 | Structures, returns, comparison, site shell | Complete |
+| 4 | Covenants, scenarios, dashboard, methods | In Progress |
 | 5 | Full verify gate, CI, case study, README | Pending |
 
 ## Deep Docs
