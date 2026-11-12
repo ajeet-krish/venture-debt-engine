@@ -742,7 +742,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -856,7 +856,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -969,7 +969,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -1089,7 +1089,7 @@
           "reason": "sizing infeasible so no facility exists to fund",
           "status": {
             "asof": "2026-11-10",
-            "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+            "provenance": "derived: closing fee percent times the facility",
             "unit": "status",
             "value": "not_applicable"
           }
@@ -3596,7 +3596,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3710,7 +3710,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3823,7 +3823,7 @@
             "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+              "provenance": "derived: closing fee percent times the facility",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3943,7 +3943,7 @@
           "reason": "sizing infeasible so no facility exists to fund",
           "status": {
             "asof": "2026-11-10",
-            "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
+            "provenance": "derived: closing fee percent times the facility",
             "unit": "status",
             "value": "not_applicable"
           }

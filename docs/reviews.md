@@ -200,3 +200,38 @@ Findings:
 Recurring patterns: a new canonical payload file must arrive in the same phase with its freshness assertion and its spec acceptance assertions (test_compare is the first surface where both were skipped); module doc comments that describe what a payload publishes must track build.py changes (bands.ts and the tests.md failure analysis drifted the same way).
 
 Hand recomputation notes for the record: 2026-01-05 is a Monday; F6 period spans 31, 28, 32, 29, 31 days sum to 151; all row interest values are consistent with 0.07 and 0.09 times 100,000,000 times the span over 365, ROUND_HALF_UP once. comparison.json was inspected directly: 24 tables of three rows, first-breach placeholder with the phase 4 reason on every row, RBF total_interest contractual 0 with provenance derived: RBF carries no interest term, pre-revenue rows aligned across all three structures as not_applicable with row-specific reasons (comparison.json:75, 178, 282), infeasible rows publish only status leaves (comparison.json:724-1117), and the single no_solution IRR cell (comparison.json:1368-1375) is honest: SYN-0004 RBF receipts front-load past the pinned solver bracket of -0.99 to 10.00 and the reason string discloses exactly that. book.json meta book_sha256 equals comparison.json meta book_sha256 (317215cd56585bb5f04d79704cc3338c4412bddac8d2b85e2f80be54a5c0cbf9).
+
+## 2026-11-12 - Phase 3: Re-review
+
+Verdict: PASS (all six findings from the 2026-11-12 Phase 3 review are resolved; standing green state confirmed at commit 0f6a4de)
+
+Evidence run 2026-11-12 at commit 0f6a4de (working tree clean): uv run pytest -q, 187 passed, exit 0 (the prior 176 plus the 11 new comparison tests); uv run pytest tests/test_compare.py -v, 11 collected and 11 passed, exit 0; uv run ruff check ., All checks passed, exit 0; uv run python -m vdebt verify, GATE RESULT: PASS, exit 0 (dash scan 104 files, 0 violations, 0 unclassified, 4 skipped .DS_Store not valid UTF-8, import isolation PASS, fixture validation 6 of 6, rate_shock_fixture.json SHA256 f33dd930babc73d373b2fc5778140e33bb425c00998bb0f82e1a88f70a012e37); web npm run build exit 0 with no chunk size warning (page bundle 1,356.72 kB under the raised limit).
+
+Per-item results:
+
+1. test_compare.py (was BLOCKING): PASS. pipeline/tests/test_compare.py carries 11 tests (the ten P3.8 assertion groups plus an infeasible-shape group) and all 11 pass. The spec 10.6 acceptance is genuinely covered: test_identical_inputs_repeat_across_three_rows (test_compare.py:141-192) asserts that every table's three rows repeat the shared block cell for cell, that the published value fields are identical across rows, and that the base rate source and source_timestamp match across rows and bind to the committed book rates snapshot (test_compare.py:154-159), with the all_in_rate and lender_irr source bindings asserted on every row. The remaining tests map to the P3.8 groups: citation presence with access dates (test_compare.py:198), binding constraint equal to the book sizing answer on all three rows including infeasible tables (test_compare.py:261), facility repetition or the uniform infeasible shape (test_compare.py:282), IO not_applicable reasons on bridge and RBF rows with the pinned reason constants (test_compare.py:316), first-breach placeholder with the phase 4 reason (test_compare.py:351), drawn IO row total interest equal to the book schedule sum (test_compare.py:375), featured borrower echo from scenario.toml [site] (test_compare.py:400), 24 sorted tables of three rows in pinned structure order (test_compare.py:416), comparison meta book_sha256 equal to book meta (test_compare.py:439), and infeasible rows publishing status leaves with no numeric zeros (test_compare.py:455). All read the committed payloads and never rebuild them.
+
+2. Freshness covers comparison.json (was Medium): PASS. test_committed_payload_freshness (test_build.py:234-285) now digests the fresh build comparison.json against the committed payloads/2026-11-10/comparison.json with a dedicated stale message and a pinned-path guard (test_build.py:262-285).
+
+3. Infeasible na cell provenance (was Low): PASS. build.py:1065-1069 attach _DERIVED_RECEIPTS, _DERIVED_MOIC, and _DERIVED_TOTAL_INTEREST to the total_receipts, moic, and total_interest not_applicable cells, and the committed comparison.json confirms it (comparison.json:795-827, the SYN-0003 bridge row: moic carries "derived: (total receipts plus warrant value) / gross facility", total_interest carries "derived: sum of schedule period interest", total_receipts carries "derived: schedule receipts, interest plus principal or remittances"). The sizing provenance correctly remains on the facility na cell, since facility is a sizing product.
+
+4. bands.ts comment (was Low): PASS. web/src/content/bands.ts:7-9 now states that the cap value is never derived in the browser and is read from the published sizing.band_cap envelope in the committed payloads, with the module supplying only the rule text and citation; that matches web/src/routes/sizing.ts:76 rendering the published envelope.
+
+5. docs/tests.md stale-reference note (was Low): PASS. The failure-analysis list at docs/tests.md:59 is historical: the flagged F6 stale references were corrected in cf205fd (the cf205fd commit touches pipeline/src/vdebt/returns.py and docs/architecture.md), and the current files carry the corrected values (returns.py quotes 10.6819, 222.6, and 111.3; docs/architecture.md:1385 quotes base "7.0000" and steps 222.6 and 111.3; docs/architecture.md:1499 quotes 222.6 and 111.3; no 111.8, 55.9, 11.7898, or 1.03609589 remains in either file). A single follow-up line was appended under the phase 3 area of docs/tests.md recording the corrections as landed.
+
+6. Vite chunk warning (was Low): PASS. web/vite.config.ts:34-36 raises build.chunkSizeWarningLimit to 2000 with the justification comment that the committed payloads are inlined intentionally under the zero runtime fetch rule, so the page bundle is large by design; npm run build emits no chunk warning (page bundle 1,356.72 kB).
+
+Findings (Severity | File:Line | Issue | Fix):
+
+| Severity | File:Line | Issue | Fix |
+|----------|-----------|-------|-----|
+| INFO | pipeline/src/vdebt/build.py:1064 and :999 | The closing_fee not_applicable cell still attaches the sizing provenance "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500" instead of the per-metric _DERIVED_CLOSING_FEE, the same pattern that was corrected for moic, total_interest, and total_receipts; the facility na cell keeping the sizing provenance is correct | Optional: pass _DERIVED_CLOSING_FEE to the closing_fee _na_cell in both the shared block and row builders |
+
+Recurring patterns: none new. The phase 3 recurring note stands: a new canonical payload must arrive in the same phase with its freshness assertion and its spec acceptance assertions; test_compare.py and the freshness extension close that gap.
+
+Verification checklist:
+- [x] All checks passed
+- [x] No critical issues found
+- [x] Code follows project conventions
+- [x] No em dashes, double hyphens, or dash equivalents; use proper punctuation
+- [x] Phase code integrates cleanly with prior phases

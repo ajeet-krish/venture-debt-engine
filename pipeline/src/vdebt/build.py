@@ -996,7 +996,7 @@ def _comparison_shared_document(
     }
     if shared.facility_cents is None:
         facility: object = _na_cell(_sizing_provenance(cfg), INFEASIBLE_REASON, asof)
-        fee: object = _na_cell(_sizing_provenance(cfg), INFEASIBLE_REASON, asof)
+        fee: object = _na_cell(_DERIVED_CLOSING_FEE, INFEASIBLE_REASON, asof)
     else:
         facility = envelope(
             shared.facility_cents,
@@ -1061,7 +1061,7 @@ def _comparison_row_document(
 
     if row.facility_cents is None:
         facility: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
-        fee: object = _na_cell(sizing_provenance, INFEASIBLE_REASON, asof)
+        fee: object = _na_cell(_DERIVED_CLOSING_FEE, INFEASIBLE_REASON, asof)
         receipts: object = _na_cell(_DERIVED_RECEIPTS, INFEASIBLE_REASON, asof)
         row_moic: object = _na_cell(_DERIVED_MOIC, INFEASIBLE_REASON, asof)
         total_interest: object = _na_cell(
