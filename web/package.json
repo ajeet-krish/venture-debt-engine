@@ -1,0 +1,15 @@
+{
+  "name": "vdebt-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prebuild": "node scripts/sync-payloads.js",
+    "dev": "node scripts/sync-payloads.js && vite",
+    "build": "node scripts/sync-payloads.js && tsc --noEmit && vite build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  }
+}

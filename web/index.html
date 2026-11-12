@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Venture Debt Engine</title>
+    <meta name="description" content="A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval." />
+    <meta name="theme-color" content="#16233b" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Venture Debt Engine" />
+    <meta property="og:title" content="Venture Debt Engine: venture debt sizing and lender returns" />
+    <meta property="og:description" content="A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval." />
+    <meta property="og:image" content="https://ajeet-krish.github.io/venture-debt-engine/og.svg" />
+    <meta property="og:image:alt" content="Venture Debt Engine, venture debt sizing and lender returns" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="wordmark" href="./index.html">
+        <span class="monogram" aria-hidden="true">VDE</span>
+        <span class="wordmark-name">Venture Debt Engine</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <ul>
+          <li><a href="./index.html" aria-current="page">Overview</a></li>
+          <li><a href="./sizing.html">Sizing</a></li>
+          <li><a href="./structures.html">Structures</a></li>
+          <li><a href="./returns.html">Returns</a></li>
+          <li><a href="./methods.html">Methods</a></li>
+          <li><a href="./verification.html">Verification</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Committed borrower book, public rate snapshot</p>
+        <h1 id="hero-title">Venture Debt Engine</h1>
+        <p class="subtitle">Venture debt sizing and lender returns</p>
+        <p class="lede">
+          Size facilities, compare structures, and read lender returns for a committed
+          book of synthetic borrowers priced off a committed public short rate. Every
+          figure prints from a committed payload: this site formats and displays
+          values, it never computes them.
+        </p>
+        <dl class="spec-grid">
+          <div class="spec-row">
+            <dt>Snapshot</dt>
+            <dd data-field="snapshot"></dd>
+          </div>
+          <div class="spec-row">
+            <dt>Base rate</dt>
+            <dd data-field="base_rate"></dd>
+          </div>
+          <div class="spec-row">
+            <dt>Series</dt>
+            <dd data-field="series"></dd>
+          </div>
+          <div class="spec-row">
+            <dt>Rate source</dt>
+            <dd data-field="source"></dd>
+          </div>
+          <div class="spec-row">
+            <dt>Generator seed</dt>
+            <dd data-field="seed"></dd>
+          </div>
+          <div class="spec-row">
+            <dt>Currency</dt>
+            <dd data-field="currency"></dd>
+          </div>
+        </dl>
+      </section>
+      <section aria-labelledby="tasks-title">
+        <h2 id="tasks-title">Five questions this site answers</h2>
+        <ol class="task-list" role="list">
+          <li>
+            <a href="./sizing.html">
+              <span class="task-q">How big a facility can this borrower service</span>
+              <span class="task-route">sizing.html</span>
+            </a>
+          </li>
+          <li>
+            <a href="./structures.html">
+              <span class="task-q">Which structure should the lender choose</span>
+              <span class="task-route">structures.html</span>
+            </a>
+          </li>
+          <li>
+            <a href="./returns.html">
+              <span class="task-q">What does the lender earn per structure</span>
+              <span class="task-route">returns.html</span>
+            </a>
+          </li>
+          <li>
+            <a href="./methods.html">
+              <span class="task-q">What are the conventions and what is illustrative</span>
+              <span class="task-route">methods.html</span>
+            </a>
+          </li>
+          <li>
+            <a href="./verification.html">
+              <span class="task-q">Did anything drift</span>
+              <span class="task-route">verification.html</span>
+            </a>
+          </li>
+        </ol>
+      </section>
+      <section aria-labelledby="boundary-title">
+        <h2 id="boundary-title">How figures reach this page</h2>
+        <p class="section-copy">
+          The pipeline commits canonical payloads, the site copies them at build time,
+          and the loader validates their shape before a single field is read. Formatting
+          places decimal points, groups digits, and renders dates. Any sum, ratio, or
+          difference in the browser would breach that boundary, so the rule is stated
+          here rather than assumed.
+        </p>
+        <p class="chip-row">
+          <span class="chip chip-pass">Payload values: verbatim</span>
+          <span class="chip chip-flag">Browser arithmetic: banned</span>
+        </p>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div data-framing>
+          <p class="framing">A portfolio demonstration of venture debt structuring and lender returns on synthetic borrowers and public rate data. Illustrative sizing tool, not credit approval.</p>
+        </div>
+        <div data-footer></div>
+      </div>
+    </footer>
+    <script type="module" src="/src/routes/index.ts"></script>
+  </body>
+</html>

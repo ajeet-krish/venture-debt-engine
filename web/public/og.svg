@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="og-title og-desc">
+  <title id="og-title">Venture Debt Engine, venture debt sizing and lender returns</title>
+  <desc id="og-desc">Placeholder Open Graph image carrying the product name and subtitle. The spec og.png with phase 5 screenshots replaces this file and the head tags swap to it.</desc>
+  <rect width="1200" height="630" fill="#16233b"/>
+  <rect x="56" y="56" width="1088" height="518" fill="none" stroke="#c6cfd6" stroke-width="2"/>
+  <rect x="56" y="56" width="1088" height="10" fill="#0b6e4f"/>
+  <text x="112" y="190" fill="#c6cfd6" font-family="Menlo, Consolas, monospace" font-size="26" letter-spacing="6">COMMITTED BORROWER BOOK, PUBLIC RATE SNAPSHOT</text>
+  <text x="112" y="330" fill="#f3f5f6" font-family="Charter, Georgia, serif" font-size="98" font-weight="700">Venture Debt Engine</text>
+  <text x="112" y="410" fill="#c6cfd6" font-family="Menlo, Consolas, monospace" font-size="40">Venture debt sizing and lender returns</text>
+  <line x1="112" y1="470" x2="1088" y2="470" stroke="#c6cfd6" stroke-width="1"/>
+  <text x="112" y="530" fill="#c6cfd6" font-family="Charter, Georgia, serif" font-size="30" font-style="italic">Illustrative sizing tool, not credit approval.</text>
+</svg>

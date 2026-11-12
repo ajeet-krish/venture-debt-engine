@@ -224,7 +224,8 @@ def test_phase_3_structures_raise_not_implemented(structure: str) -> None:
             io_months=0,
             all_in_rate=Decimal("8.0000"),
         )
-    assert "not implemented in phase 2" in str(excinfo.value)
+    message = str(excinfo.value)
+    assert "build_rbf_schedule" in message and "build_bridge_schedule" in message
 
 
 def test_f3_period_1_interest_hand_recompute_act365() -> None:
