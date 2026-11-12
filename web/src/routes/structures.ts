@@ -4,8 +4,8 @@
  *
  * Every cell prints a committed envelope from comparison.json. Band
  * sourced cells carry their citation as a small mono note beside the
- * value, the first breach column shows its phase 4 placeholder as an
- * honest status chip, and the facility repeats disclosure sits under the
+ * value, the first breach column prints its published leaf as a covenant
+ * stamp chip, and the facility repeats disclosure sits under the
  * table. Nothing is recomputed.
  */
 import "../styles/main.css";
@@ -14,7 +14,7 @@ import { mountShell } from "../components/page";
 import { mountSelector } from "../components/selector";
 import { RATIONALE_NOTES, STRUCTURE_LABELS } from "../content/rationale";
 import { readAsofLink, renderAsofNote } from "../lib/asof";
-import { constraintLabel, envelopeText, statusLabel } from "../lib/cell";
+import { breachChip, breachView, constraintLabel, envelopeText, statusLabel } from "../lib/cell";
 import { chartAsset } from "../lib/chart";
 import {
   isStatusCell,
@@ -103,18 +103,14 @@ function figureCell(cell: ComparisonCell, numeric: boolean): HTMLTableCellElemen
   }
   return td;
 }
-/** The first breach column: a phase 4 placeholder until the engine lands. */
+/** The first breach column: the published leaf as a covenant stamp chip. */
 function firstBreachCell(row: ComparisonRow): HTMLTableCellElement {
-  const cell = row.first_breach_month;
+  const chip = breachChip(breachView(row.first_breach_month));
   const td = element("td") as HTMLTableCellElement;
-  if (isStatusCell(cell)) {
-    td.append(
-      element("span", "chip chip-pending", "ships in phase 4"),
-      element("span", "cell-note", cell.reason),
-    );
-    return td;
+  td.append(element("span", chip.className, chip.text));
+  if (chip.reason !== undefined) {
+    td.append(element("span", "cell-note", chip.reason));
   }
-  td.append(element("span", "cell-value", envelopeText(cell)));
   return td;
 }
 

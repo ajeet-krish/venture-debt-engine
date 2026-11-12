@@ -52,6 +52,26 @@ export const UNITS: readonly Unit[] = [
 /** Units whose value is a formatted string rather than a number. */
 const STRING_UNITS: ReadonlySet<string> = new Set(["date", "sha256_hex", "status"]);
 
+/** Status vocabulary from spec section 6.4, including the phase 4 "breach". */
+export type StatusValue =
+  | "feasible"
+  | "infeasible"
+  | "not_applicable"
+  | "not_granted"
+  | "shortfall"
+  | "no_solution"
+  | "breach";
+
+export const STATUS_VALUES: readonly StatusValue[] = [
+  "feasible",
+  "infeasible",
+  "not_applicable",
+  "not_granted",
+  "shortfall",
+  "no_solution",
+  "breach",
+];
+
 /** Status values that must carry a reason companion on the parent object. */
 const REASON_REQUIRED_STATUSES: ReadonlySet<string> = new Set([
   "not_applicable",
@@ -101,6 +121,8 @@ export interface BookMeta {
   readonly rounding_mode: string;
   readonly seed: Envelope;
   readonly strata_manifest: Readonly<Record<string, Stratum>>;
+  /** Committed dashboard counts, published by the phase 4 payload build. */
+  readonly book_summary?: BookSummary;
 }
 
 /** Borrower inputs: every configured value is an envelope. */
@@ -179,6 +201,178 @@ export interface ReturnsNotApplicable {
 
 export type ReturnsBlock = ReturnsFeasible | ReturnsNotApplicable;
 
+/* Phase 4 blocks (architecture P4.1, P4.2, P4.3, and P4.6).
+ *
+ * book.json gains three additive blocks once the phase 4 payload build
+ * lands: borrower.scenarios (base and downside headline figures, their
+ * published deltas, and the rate shock block), borrower.covenants (the
+ * four covenant summaries per scenario plus the borrower level first
+ * breach month), and meta.book_summary (the committed dashboard counts).
+ * All three stay optional here so a payload without them degrades to the
+ * honest placeholder instead of a crash, and each is validated for shape
+ * when present: keys, units, scales, and status companions. No magnitude
+ * is ever compared.
+ */
+
+/** A published delta leaf: its envelope plus the pipeline's own label. */
+export interface DeltaLeaf extends Envelope {
+  /**
+   * The published delta label on the envelope itself, for example
+   * "invariant by construction" or "downside minus base".
+   */
+  readonly status: string;
+}
+
+/** Any published delta: a figure with its label, or a status with reason. */
+export type DeltaCell = StatusCell | DeltaLeaf;
+
+/** One scenario's headline figures (P4.2 base or downside block). */
+export interface ScenarioFigures {
+  readonly lender_irr: Envelope;
+  readonly moic: Envelope;
+  readonly total_interest: Envelope;
+  readonly total_receipts: Envelope;
+  readonly closing_fee: Envelope;
+  readonly warrant: Envelope;
+  readonly warrant_contractual: Envelope;
+  /** RBF only: schedule status and residual companions (P4.2). */
+  readonly rbf_status?: Envelope;
+  readonly rbf_residual?: Envelope;
+}
+
+/** An infeasible borrower's scenario block: status plus reason only. */
+export interface ScenarioNotApplicable {
+  readonly status: Envelope;
+  readonly reason: string;
+}
+
+export type ScenarioBlock = ScenarioFigures | ScenarioNotApplicable;
+
+/** A rate shock leaf: a figure, or a status cell with its reason (P4.3). */
+export type RateShockCell = Envelope | StatusCell;
+
+/** The rate shock block: shocked interest, shocked IRR, delta, sensitivity. */
+export interface RateShockBlock {
+  readonly shocked_all_in_rate: Envelope;
+  readonly shocked_total_interest: Envelope;
+  readonly shocked_lender_irr: RateShockCell;
+  readonly irr_delta_bp: RateShockCell;
+  readonly sensitivity_per_100bp: RateShockCell;
+}
+
+/** Every published headline delta, downside minus base (P4.2). */
+export interface ScenarioDeltas {
+  readonly lender_irr_delta: DeltaCell;
+  readonly moic_delta: DeltaCell;
+  readonly total_interest_delta: DeltaCell;
+  readonly total_receipts_delta: DeltaCell;
+  readonly warrant_delta: DeltaCell;
+}
+
+/** The borrower's scenarios block: two scenarios, deltas, rate shock. */
+export interface ScenariosFiguresBlock {
+  readonly base: ScenarioBlock;
+  readonly downside: ScenarioBlock;
+  readonly deltas: ScenarioDeltas;
+  readonly rate_shock: RateShockBlock;
+}
+
+/**
+ * The scenarios block: the figure shape for a feasible borrower, or the
+ * not_applicable shape for an infeasible one (published as one status
+ * cell with its reason, never fabricated zeros).
+ */
+export type ScenariosBlock = ScenariosFiguresBlock | ScenarioNotApplicable;
+
+/** First breach cell: status with value iff breach, reason iff not applicable. */
+export interface FirstBreachCell {
+  readonly status: Envelope;
+  readonly value?: Envelope;
+  readonly reason?: string;
+}
+
+/** A first breach published as a bare months leaf or a bare status leaf. */
+export type FirstBreach = FirstBreachCell | Envelope;
+
+/** One covenant's summary: spec leaves, status, headroom, first breach. */
+export interface CovenantBlock {
+  readonly name: string;
+  readonly kind: string;
+  readonly limit: Envelope;
+  readonly status: Envelope;
+  readonly reason?: string;
+  readonly min_headroom?: Envelope;
+  readonly first_breach_month?: FirstBreach;
+}
+
+/** The four pinned covenants under one scenario (P4.1). */
+export interface CovenantBlocks {
+  readonly net_leverage: CovenantBlock;
+  readonly interest_cover: CovenantBlock;
+  readonly min_cash: CovenantBlock;
+  readonly dscr_floor: CovenantBlock;
+  readonly reason?: string;
+}
+
+/**
+ * One scenario's covenant side: the four blocks for a feasible borrower,
+ * or a not_applicable status cell with its reason for an infeasible one.
+ */
+export type CovenantScenario = CovenantBlocks | ScenarioNotApplicable;
+
+/** The borrower's covenants block plus its borrower level first breach. */
+export interface CovenantsBlock {
+  readonly base: CovenantScenario;
+  readonly downside: CovenantScenario;
+  readonly first_breach_month: FirstBreach;
+  readonly reason?: string;
+}
+
+/** A committed count: a bare integer or a count envelope, both published. */
+export type CountValue = number | Envelope;
+
+/** One published capacity bin: edges and count, all committed values. */
+export interface CapacityBin {
+  readonly bin_low: CountValue;
+  readonly bin_high: CountValue;
+  readonly count: CountValue;
+}
+
+/** Published binding constraint mix: counts nested or flat (P4.6). */
+export interface BindingConstraintMix {
+  readonly counts?: Readonly<Record<string, CountValue>>;
+  readonly feasible_count?: CountValue;
+  readonly infeasible_count?: CountValue;
+  readonly runway?: CountValue;
+  readonly dscr?: CountValue;
+  readonly band_cap?: CountValue;
+}
+
+/** meta.book_summary: every dashboard number, computed by the pipeline. */
+export interface BookSummary {
+  readonly capacity_distribution?: readonly CapacityBin[];
+  readonly binding_constraint_mix?: BindingConstraintMix;
+}
+
+/** True when a published block is a status cell with its reason companion. */
+export function isNotApplicableShape(block: ScenarioBlock): block is ScenarioNotApplicable;
+export function isNotApplicableShape(block: ScenariosBlock): block is ScenarioNotApplicable;
+export function isNotApplicableShape(block: CovenantScenario): block is ScenarioNotApplicable;
+export function isNotApplicableShape(block: unknown): boolean;
+export function isNotApplicableShape(block: unknown): boolean {
+  return (
+    typeof block === "object" &&
+    block !== null &&
+    "status" in block &&
+    "reason" in block
+  );
+}
+
+/** True when a first breach leaf publishes a status cell rather than a leaf. */
+export function isFirstBreachCell(leaf: FirstBreach): leaf is FirstBreachCell {
+  return "status" in leaf && !("unit" in leaf);
+}
+
 /** One committed borrower record. */
 export interface Borrower {
   readonly borrower_id: string;
@@ -191,6 +385,10 @@ export interface Borrower {
   readonly sizing: Sizing;
   readonly schedule: Schedule;
   readonly returns: ReturnsBlock;
+  /** Phase 4 covenant summaries, present once the payload build lands. */
+  readonly covenants?: CovenantsBlock;
+  /** Phase 4 scenario headlines, present once the payload build lands. */
+  readonly scenarios?: ScenariosBlock;
 }
 
 /** The canonical book.json document. */
@@ -314,6 +512,11 @@ function validateEnvelopeLeaves(node: Record<string, unknown>, path: string): vo
   } else {
     fail(path, "value must be a string or an integer JSON number");
   }
+  if (unit === "status") {
+    if (typeof value !== "string" || !STATUS_VALUES.includes(value as StatusValue)) {
+      fail(path, `status value ${JSON.stringify(value)} is not in the section 6.4 vocabulary`);
+    }
+  }
   if ("scale" in node && typeof node.scale === "number" && !Number.isSafeInteger(node.scale)) {
     fail(path, "scale must be an integer");
   }
@@ -375,9 +578,14 @@ function walkShape(node: unknown, path: string): void {
         typeof value.value === "string" &&
         REASON_REQUIRED_STATUSES.has(value.value)
       ) {
-        const reason = node.reason;
-        if (typeof reason !== "string" || reason.length === 0) {
-          fail(`${path}.${key}`, `status "${value.value}" requires a non-empty reason companion on the parent object`);
+        // snapshot.py accepts the companion inside the envelope or in its
+        // containing object, so both locations satisfy this check.
+        const inside =
+          typeof value.reason === "string" && value.reason.length > 0;
+        const onParent =
+          typeof node.reason === "string" && node.reason.length > 0;
+        if (!inside && !onParent) {
+          fail(`${path}.${key}`, `status "${value.value}" requires a non-empty reason companion on the envelope or the parent object`);
         }
       }
       walkShape(value, `${path}.${key}`);
@@ -449,6 +657,9 @@ function assertMeta(node: unknown, path: string): void {
     members.forEach((member, index) =>
       requireString(member, `${entryPath}.members[${index}]`),
     );
+  }
+  if ("book_summary" in meta) {
+    assertBookSummary(meta.book_summary, `${path}.book_summary`);
   }
 }
 
@@ -577,6 +788,267 @@ function assertBorrower(node: unknown, path: string): void {
       `unknown returns status ${JSON.stringify(returnsStatus.value)}; expected "feasible" or "not_applicable"`,
     );
   }
+
+  // Phase 4 blocks (P4.1, P4.2): validated when present, absent until the
+  // payload build publishes them.
+  if ("covenants" in borrower) {
+    assertCovenants(borrower.covenants, `${path}.covenants`);
+  }
+  if ("scenarios" in borrower) {
+    assertScenarios(borrower.scenarios, `${path}.scenarios`);
+  }
+}
+
+/* Phase 4 shape assertions (architecture P4.1, P4.2, P4.3, P4.6).
+ *
+ * Structural only: keys, units, scales, and status companions, never
+ * magnitudes. Each block is optional at its owner, so a payload that has
+ * not published one still loads and the route keeps its placeholder.
+ */
+
+function assertStatusEnvelope(node: unknown, path: string): Record<string, unknown> {
+  const envelope = requireEnvelopeShape(node, path);
+  if (envelope.unit !== "status") {
+    fail(`${path}.unit`, `expected "status", found ${JSON.stringify(envelope.unit)}`);
+  }
+  validateEnvelopeLeaves(envelope, path);
+  return envelope;
+}
+
+/** A status cell: status envelope plus the required reason companion. */
+function assertStatusCellShape(node: unknown, path: string): void {
+  if (!isRecord(node)) {
+    fail(path, "expected a status cell with a status envelope and a reason");
+  }
+  assertStatusEnvelope(requireKey(node, "status", path), `${path}.status`);
+  requireString(requireKey(node, "reason", path), `${path}.reason`);
+}
+
+/** One delta leaf: a figure carrying its pipeline label, or a status cell. */
+function assertDeltaCell(node: unknown, path: string): void {
+  if (
+    isRecord(node) &&
+    "status" in node &&
+    typeof node.status === "object" &&
+    node.status !== null &&
+    "reason" in node
+  ) {
+    assertStatusCellShape(node, path);
+    return;
+  }
+  const leaf = requireEnvelopeShape(node, path);
+  validateEnvelopeLeaves(leaf, path);
+  requireString(requireKey(leaf, "status", path), `${path}.status`);
+}
+
+const SCENARIO_FIGURE_KEYS = [
+  "lender_irr",
+  "moic",
+  "total_interest",
+  "total_receipts",
+  "closing_fee",
+  "warrant",
+  "warrant_contractual",
+] as const;
+
+function assertScenarioBlock(node: unknown, path: string): void {
+  const block = isRecord(node) ? node : fail(path, "expected an object");
+  if ("status" in block && "reason" in block) {
+    assertStatusEnvelope(block.status, `${path}.status`);
+    requireString(block.reason, `${path}.reason`);
+    return;
+  }
+  for (const key of SCENARIO_FIGURE_KEYS) {
+    const leaf = requireEnvelopeShape(requireKey(block, key, path), `${path}.${key}`);
+    validateEnvelopeLeaves(leaf, `${path}.${key}`);
+  }
+  for (const key of ["rbf_status", "rbf_residual"] as const) {
+    if (key in block) {
+      const leaf = requireEnvelopeShape(block[key], `${path}.${key}`);
+      validateEnvelopeLeaves(leaf, `${path}.${key}`);
+    }
+  }
+}
+
+function assertRateShockCell(node: unknown, path: string, expectedUnit?: Unit): void {
+  if (isRecord(node) && "status" in node && "reason" in node) {
+    assertStatusCellShape(node, path);
+    return;
+  }
+  const leaf = requireEnvelopeShape(node, path);
+  validateEnvelopeLeaves(leaf, path);
+  if (expectedUnit !== undefined && leaf.unit !== expectedUnit) {
+    fail(`${path}.unit`, `expected "${expectedUnit}", found ${JSON.stringify(leaf.unit)}`);
+  }
+}
+
+function assertRateShock(node: unknown, path: string): void {
+  const block = isRecord(node) ? node : fail(path, "expected an object");
+  for (const key of ["shocked_all_in_rate", "shocked_total_interest"] as const) {
+    const leaf = requireEnvelopeShape(requireKey(block, key, path), `${path}.${key}`);
+    validateEnvelopeLeaves(leaf, `${path}.${key}`);
+  }
+  assertRateShockCell(
+    requireKey(block, "shocked_lender_irr", path),
+    `${path}.shocked_lender_irr`,
+  );
+  assertRateShockCell(requireKey(block, "irr_delta_bp", path), `${path}.irr_delta_bp`, "bp");
+  assertRateShockCell(
+    requireKey(block, "sensitivity_per_100bp", path),
+    `${path}.sensitivity_per_100bp`,
+    "bp",
+  );
+}
+
+const DELTA_KEYS = [
+  "lender_irr_delta",
+  "moic_delta",
+  "total_interest_delta",
+  "total_receipts_delta",
+  "warrant_delta",
+] as const;
+
+function assertScenarios(node: unknown, path: string): void {
+  const block = isRecord(node) ? node : fail(path, "expected an object");
+  if (isNotApplicableShape(block)) {
+    // Infeasible borrowers publish one status cell with its reason.
+    assertStatusCellShape(block, path);
+    return;
+  }
+  assertScenarioBlock(requireKey(block, "base", path), `${path}.base`);
+  assertScenarioBlock(requireKey(block, "downside", path), `${path}.downside`);
+  const deltas = requireKey(block, "deltas", path);
+  if (!isRecord(deltas)) {
+    fail(`${path}.deltas`, "expected an object of published delta leaves");
+  }
+  for (const key of DELTA_KEYS) {
+    assertDeltaCell(requireKey(deltas, key, `${path}.deltas`), `${path}.deltas.${key}`);
+  }
+  assertRateShock(requireKey(block, "rate_shock", path), `${path}.rate_shock`);
+}
+
+function assertFirstBreach(node: unknown, path: string): void {
+  if (isRecord(node) && "status" in node && !("unit" in node)) {
+    const status = assertStatusEnvelope(node.status, `${path}.status`);
+    if ("value" in node) {
+      const value = requireEnvelopeShape(node.value, `${path}.value`);
+      if (value.unit !== "months") {
+        fail(`${path}.value.unit`, `expected "months", found ${JSON.stringify(value.unit)}`);
+      }
+      validateEnvelopeLeaves(value, `${path}.value`);
+    } else if (status.value === "breach") {
+      fail(path, 'status "breach" requires the months value leaf');
+    }
+    if ("reason" in node) {
+      requireString(node.reason, `${path}.reason`);
+    }
+    return;
+  }
+  const leaf = requireEnvelopeShape(node, path);
+  validateEnvelopeLeaves(leaf, path);
+  if (leaf.unit !== "months" && leaf.unit !== "status") {
+    fail(`${path}.unit`, `expected "months" or "status", found ${JSON.stringify(leaf.unit)}`);
+  }
+}
+
+function assertCovenantBlock(node: unknown, path: string): void {
+  const block = isRecord(node) ? node : fail(path, "expected an object");
+  requireString(requireKey(block, "name", path), `${path}.name`);
+  requireString(requireKey(block, "kind", path), `${path}.kind`);
+  const limit = requireEnvelopeShape(requireKey(block, "limit", path), `${path}.limit`);
+  validateEnvelopeLeaves(limit, `${path}.limit`);
+  assertStatusEnvelope(requireKey(block, "status", path), `${path}.status`);
+  if ("reason" in block) {
+    requireString(block.reason, `${path}.reason`);
+  }
+  if ("min_headroom" in block) {
+    const headroom = requireEnvelopeShape(block.min_headroom, `${path}.min_headroom`);
+    validateEnvelopeLeaves(headroom, `${path}.min_headroom`);
+  }
+  if ("first_breach_month" in block) {
+    assertFirstBreach(block.first_breach_month, `${path}.first_breach_month`);
+  }
+}
+
+const COVENANT_NAMES = ["net_leverage", "interest_cover", "min_cash", "dscr_floor"] as const;
+
+function assertCovenants(node: unknown, path: string): void {
+  const block = isRecord(node) ? node : fail(path, "expected an object");
+  for (const scenario of ["base", "downside"] as const) {
+    const side = requireKey(block, scenario, path);
+    if (!isRecord(side)) {
+      fail(`${path}.${scenario}`, "expected the four covenant blocks or a status cell");
+    }
+    if (isNotApplicableShape(side)) {
+      // Infeasible borrowers publish one status cell with its reason.
+      assertStatusCellShape(side, `${path}.${scenario}`);
+      continue;
+    }
+    for (const name of COVENANT_NAMES) {
+      assertCovenantBlock(
+        requireKey(side, name, `${path}.${scenario}`),
+        `${path}.${scenario}.${name}`,
+      );
+    }
+    if ("reason" in side) {
+      requireString(side.reason, `${path}.${scenario}.reason`);
+    }
+  }
+  assertFirstBreach(
+    requireKey(block, "first_breach_month", path),
+    `${path}.first_breach_month`,
+  );
+  if ("reason" in block) {
+    requireString(block.reason, `${path}.reason`);
+  }
+}
+
+/** A committed count: a bare integer or a validated count envelope. */
+function assertCountValue(node: unknown, path: string): void {
+  if (typeof node === "number") {
+    if (!Number.isSafeInteger(node)) {
+      fail(path, `count ${node} is a float; counts are integers or count envelopes`);
+    }
+    return;
+  }
+  const leaf = requireEnvelopeShape(node, path);
+  validateEnvelopeLeaves(leaf, path);
+}
+
+function assertBookSummary(node: unknown, path: string): void {
+  const summary = isRecord(node) ? node : fail(path, "expected an object");
+  if ("capacity_distribution" in summary) {
+    const bins = requireArray(summary.capacity_distribution, `${path}.capacity_distribution`);
+    bins.forEach((bin, index) => {
+      const binPath = `${path}.capacity_distribution[${index}]`;
+      if (!isRecord(bin)) {
+        fail(binPath, "expected an object with bin_low, bin_high, and count");
+      }
+      for (const key of ["bin_low", "bin_high", "count"] as const) {
+        assertCountValue(requireKey(bin, key, binPath), `${binPath}.${key}`);
+      }
+    });
+  }
+  if ("binding_constraint_mix" in summary) {
+    const mix = summary.binding_constraint_mix;
+    if (!isRecord(mix)) {
+      fail(`${path}.binding_constraint_mix`, "expected an object of published counts");
+    }
+    if ("counts" in mix) {
+      const counts = mix.counts;
+      if (!isRecord(counts)) {
+        fail(`${path}.binding_constraint_mix.counts`, "expected an object of counts");
+      }
+      for (const [key, value] of Object.entries(counts)) {
+        assertCountValue(value, `${path}.binding_constraint_mix.counts.${key}`);
+      }
+    }
+    for (const key of ["feasible_count", "infeasible_count", "runway", "dscr", "band_cap"] as const) {
+      if (key in mix) {
+        assertCountValue(mix[key], `${path}.binding_constraint_mix.${key}`);
+      }
+    }
+  }
 }
 
 /** Assert the full book.json shape; throws with a precise path on drift. */
@@ -653,7 +1125,7 @@ export interface ComparisonRow {
   readonly lender_irr: ComparisonCell;
   readonly moic: ComparisonCell;
   readonly min_dscr: ComparisonCell;
-  readonly first_breach_month: StatusCell;
+  readonly first_breach_month: FirstBreach;
   readonly warrant_coverage: Envelope;
   readonly total_receipts: ComparisonCell;
 }
@@ -718,10 +1190,7 @@ function assertComparisonRow(node: unknown, path: string): void {
     assertComparisonCell(requireKey(row, name, path), `${path}.${name}`);
   }
   const breach = requireKey(row, "first_breach_month", path);
-  if (!isRecord(breach) || !("status" in breach) || !("reason" in breach)) {
-    fail(`${path}.first_breach_month`, "expected a status cell with a reason companion");
-  }
-  assertComparisonCell(breach, `${path}.first_breach_month`);
+  assertFirstBreach(breach, `${path}.first_breach_month`);
 }
 
 /** Assert the full comparison.json shape; throws with a precise path. */

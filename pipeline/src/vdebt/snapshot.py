@@ -20,6 +20,7 @@ from typing import Literal, get_args
 from vdebt.money import parse_fixed
 
 Status = Literal[
+    "breach",
     "feasible",
     "infeasible",
     "not_applicable",

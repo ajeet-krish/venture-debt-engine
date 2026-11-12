@@ -22,8 +22,10 @@ vdebt.compare. The eleven assertion groups:
    status shape with no fabricated value;
 5. IO months: bridge and RBF rows not_applicable with their pinned
    reasons, the IO row an integer;
-6. first-breach placeholder: not_applicable with the covenant engine
-   phase 4 reason on every row;
+6. first-breach cells: each row publishes its own downside first-breach
+   leaf (a months scale 1 breach value, the feasible status leaf, or the
+   sizing not_applicable shape), never the retired phase 4 placeholder
+   reason;
 7. drawn-row consistency: every io_then_straight_line borrower's IO row
    total interest equals the book.json schedule interest sum;
 8. featured echo: meta.featured_borrower_id equals scenario.toml [site];
@@ -45,7 +47,6 @@ from pathlib import Path
 from typing import Any
 
 from vdebt.compare import (
-    FIRST_BREACH_REASON,
     INFEASIBLE_REASON,
     IO_BRIDGE_REASON,
     IO_RBF_REASON,
@@ -345,28 +346,57 @@ def test_io_months_cells_per_structure() -> None:
         assert io_value > 0, f"{borrower_id}: IO row io_months must be positive"
 
 
-# 6. First-breach placeholder on every row.
+# 6. First-breach leaf on every row (real values, phase 4 replacement).
 
 
-def test_first_breach_placeholder_on_every_row() -> None:
+def test_first_breach_month_real_values_on_every_row() -> None:
+    # Phase 4 replaced the placeholder in place: each row publishes its own
+    # downside first-breach leaf, never the retired placeholder reason.
+    assert "covenant engine lands in phase 4" not in json.dumps(COMPARISON), (
+        "comparison.json still carries the retired phase 4 placeholder reason"
+    )
     for table in TABLES:
         for row in table["rows"]:
             borrower_id = table["borrower_id"]
             cell = row["first_breach_month"]
-            assert cell["status"]["value"] == "not_applicable", (
-                f"{borrower_id} {row['structure']}: first_breach_month status drifted"
-            )
-            reason = cell.get("reason")
-            assert isinstance(reason, str) and reason, (
-                f"{borrower_id} {row['structure']}: first_breach_month carries no reason"
-            )
-            assert "covenant engine" in reason and "phase 4" in reason, (
-                f"{borrower_id} {row['structure']}: first-breach reason must mention "
-                f"the covenant engine and phase 4: {reason!r}"
-            )
-            assert reason == FIRST_BREACH_REASON, (
-                f"{borrower_id} {row['structure']}: first-breach reason drifted: {reason!r}"
-            )
+            status = cell["status"]["value"]
+            if status == "breach":
+                # Breach publishes the months scale 1 value with no reason.
+                assert cell["unit"] == "months", (
+                    f"{borrower_id} {row['structure']}: breach cell unit "
+                    f"{cell['unit']!r} is not months"
+                )
+                assert cell["scale"] == 1, (
+                    f"{borrower_id} {row['structure']}: breach cell scale "
+                    f"{cell['scale']!r} is not 1"
+                )
+                value = cell.get("value")
+                assert isinstance(value, str) and re.fullmatch(r"\d+\.\d", value), (
+                    f"{borrower_id} {row['structure']}: breach cell value "
+                    f"{value!r} is not a months scale 1 string"
+                )
+                assert "reason" not in cell, (
+                    f"{borrower_id} {row['structure']}: breach cell carries a reason"
+                )
+            elif status == "feasible":
+                # Feasible: no breach through the horizon, no value, no reason.
+                assert "value" not in cell, (
+                    f"{borrower_id} {row['structure']}: feasible cell carries "
+                    f"a value {cell.get('value')!r}"
+                )
+                assert "reason" not in cell, (
+                    f"{borrower_id} {row['structure']}: feasible cell carries a reason"
+                )
+            else:
+                assert status == "not_applicable", (
+                    f"{borrower_id} {row['structure']}: unknown first-breach "
+                    f"status {status!r}"
+                )
+                reason = cell.get("reason")
+                assert reason == INFEASIBLE_REASON, (
+                    f"{borrower_id} {row['structure']}: not_applicable first-breach "
+                    f"reason {reason!r} is not the sizing reason"
+                )
 
 
 # 7. Drawn IO row equals the book schedule totals.

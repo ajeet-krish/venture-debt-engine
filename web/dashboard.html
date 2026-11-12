@@ -45,6 +45,11 @@
       <div data-asof></div>
       <section aria-labelledby="summary-title">
         <h2 id="summary-title">Committed book summary</h2>
+        <p class="section-copy">
+          Feasible and infeasible solves and the binding constraint mix, printed
+          verbatim from the committed book summary block. Every count is a
+          published envelope value; this page reads and formats, never counts.
+        </p>
         <div data-dashboard-summary>
           <div class="notice" role="note">
             <p class="notice-head">Dashboard figures land with the payload block</p>
@@ -61,9 +66,10 @@
       <section aria-labelledby="capacity-title">
         <h2 id="capacity-title">Capacity distribution</h2>
         <p class="section-copy">
-          One bar per published capacity bin over the committed book. The bin
-          edges and counts come from the committed payload; the pipeline did
-          the binning.
+          One bar per published capacity bin over the committed book, with the
+          same bins as a ledger table of range text and count. The bin edges
+          and counts come from the committed payload; the pipeline did the
+          binning.
         </p>
         <div data-dashboard-capacity-chart>
           <div class="chart-placeholder" role="note">
@@ -76,6 +82,7 @@
             </p>
           </div>
         </div>
+        <div data-dashboard-bins></div>
       </section>
       <section aria-labelledby="mix-title">
         <h2 id="mix-title">Binding constraint mix</h2>

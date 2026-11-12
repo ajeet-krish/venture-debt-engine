@@ -1,19 +1,29 @@
 /**
- * Dashboard route: honest skeleton over the committed book (architecture
- * P4.6).
+ * Dashboard route: the committed book summary rendered verbatim
+ * (architecture P4.6).
  *
- * Every dashboard number publishes in book.json meta.book_summary as a
- * count envelope computed by the pipeline at build time. This route
- * reads no figure from that block: it reports structurally whether the
- * block exists (a key presence check, never a magnitude read) and mounts
- * the two build time SVG assets through the shared chart pattern,
- * keeping the honest placeholder already in dashboard.html whenever an
- * asset is absent. No arithmetic runs anywhere in this file.
+ * When meta.book_summary is present, every figure on this page is a
+ * published count printed through lib/format.ts: feasible and infeasible
+ * solves, the binding constraint mix, and the capacity bins as a ledger
+ * table with their published range edges. Nothing is counted, summed, or
+ * binned in this file, and no total appears unless the payload publishes
+ * it as an envelope. When the block is absent, the honest placeholder
+ * already in dashboard.html stays on screen. The two charts are build
+ * time SVG assets mounted through the shared chart pattern, each with a
+ * one line provenance footer. No arithmetic runs anywhere in this file.
  */
 import "../styles/main.css";
 import { mountShell } from "../components/page";
 import { readAsofLink, renderAsofNote } from "../lib/asof";
 import { chartAsset } from "../lib/chart";
+import { constraintLabel, dollars, envelopeText } from "../lib/cell";
+import { formatFixed } from "../lib/format";
+import {
+  type BindingConstraintMix,
+  type BookSummary,
+  type CapacityBin,
+  type CountValue,
+} from "../lib/payload";
 
 const { main, book } = mountShell();
 
@@ -36,51 +46,270 @@ function element(tag: string, className?: string, text?: string): HTMLElement {
   return node;
 }
 
-/**
- * Structural presence check only: whether the meta object carries a
- * book_summary key. No value is read, no magnitude compared, no count
- * derived, so the zero arithmetic boundary holds.
- */
-function hasBookSummary(meta: unknown): boolean {
-  if (typeof meta !== "object" || meta === null || Array.isArray(meta)) {
-    return false;
-  }
-  return "book_summary" in meta;
-}
-
-/** The summary slot: an honest notice for either state of the payload. */
-function renderSummaryNotice(): void {
-  const host = mount("[data-dashboard-summary]");
-  host.textContent = "";
+/** The honest placeholder notice, in the pattern the skeleton established. */
+function placeholder(host: Element, head: string, body: string): void {
   const notice = element("div", "notice");
   notice.setAttribute("role", "note");
-  if (hasBookSummary(book.meta)) {
-    notice.append(
-      element("p", "notice-head", "Summary block present, figures not wired yet"),
-      element(
-        "p",
-        undefined,
-        "meta.book_summary is present in the committed payload. The verbatim " +
-          "figure table for the capacity distribution, binding constraint mix, " +
-          "and feasible and infeasible counts lands with the dashboard wiring " +
-          "task; this route reads nothing from the block yet.",
-      ),
-    );
-  } else {
-    notice.append(
-      element("p", "notice-head", "Dashboard figures not published yet"),
-      element(
-        "p",
-        undefined,
-        "The committed book summary (meta.book_summary) has not landed in " +
-          "book.json, so this page prints no dashboard number. The capacity " +
-          "distribution, binding constraint mix, and infeasible count render " +
-          "verbatim from that block when the phase 4 payload build publishes " +
-          "it. Until then the chart slots below keep their honest placeholders.",
-      ),
-    );
-  }
+  notice.append(element("p", "notice-head", head), element("p", undefined, body));
   host.append(notice);
+}
+
+/**
+ * One committed count as display text. Grouping and point placement
+ * only: the digits that leave here are the digits the payload published,
+ * whether it published a bare integer or a count envelope.
+ */
+function countText(value: CountValue): string {
+  if (typeof value === "number") {
+    return formatFixed(String(value), 0);
+  }
+  if (value.unit === "count") {
+    return formatFixed(String(value.value), 0);
+  }
+  return envelopeText(value);
+}
+
+/** A published bin edge in display dollars: point placement on cents. */
+function edgeText(edge: CountValue): string {
+  const cents = typeof edge === "number" ? String(edge) : String(edge.value);
+  return dollars(cents);
+}
+
+/** Read one key from a flat record only when the key is published. */
+function lookupCount(
+  node: Readonly<Record<string, CountValue>>,
+  key: string,
+): CountValue | undefined {
+  return key in node ? node[key] : undefined;
+}
+
+/**
+ * One mix count from the published block: the top level key first, then
+ * the nested counts object. Both published shapes read the same way.
+ */
+function mixCount(mix: BindingConstraintMix, key: string): CountValue | undefined {
+  const direct = topCount(mix, key);
+  if (direct !== undefined) {
+    return direct;
+  }
+  const counts = mix.counts;
+  if (counts === undefined) {
+    return undefined;
+  }
+  return lookupCount(counts, key);
+}
+
+function topCount(mix: BindingConstraintMix, key: string): CountValue | undefined {
+  switch (key) {
+    case "feasible_count":
+      return mix.feasible_count;
+    case "infeasible_count":
+      return mix.infeasible_count;
+    case "runway":
+      return mix.runway;
+    case "dscr":
+      return mix.dscr;
+    case "band_cap":
+      return mix.band_cap;
+    default:
+      return undefined;
+  }
+}
+
+/** Solve rows: the two feasibility counts of the committed book. */
+const SOLVE_ROWS: ReadonlyArray<{ readonly key: string; readonly label: string }> = [
+  { key: "feasible_count", label: "Feasible solves" },
+  { key: "infeasible_count", label: "Infeasible solves" },
+];
+
+/** Mix rows: the three published binding constraint counts. */
+const MIX_ROWS: ReadonlyArray<{ readonly key: string; readonly token: string }> = [
+  { key: "runway", token: "runway" },
+  { key: "dscr", token: "dscr" },
+  { key: "band_cap", token: "band_cap" },
+];
+
+/** One count cell: the published count, or the honest absence note. */
+function countCell(value: CountValue | undefined, note?: string): HTMLTableCellElement {
+  const td = element("td", "num") as HTMLTableCellElement;
+  if (value === undefined) {
+    td.append(element("span", "cell-note", "not published in the payload"));
+    return td;
+  }
+  td.append(element("span", "cell-value", countText(value)));
+  if (note !== undefined) {
+    td.append(element("span", "cell-note", note));
+  }
+  return td;
+}
+
+/** The committed counts ledger: solves and mix, verbatim from the block. */
+function countsTable(mix: BindingConstraintMix): HTMLElement {
+  const scroll = element("div", "table-scroll");
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute("aria-label", "Committed book counts ledger, scrolls horizontally");
+
+  const table = element("table", "ledger-table");
+  table.append(
+    element(
+      "caption",
+      undefined,
+      "Committed book counts, verbatim from meta.book_summary",
+    ),
+  );
+
+  const headRow = element("tr");
+  for (const header of ["Measure", "Published count"]) {
+    const th = element("th", header === "Measure" ? undefined : "num", header);
+    th.setAttribute("scope", "col");
+    headRow.append(th);
+  }
+  const thead = element("thead");
+  thead.append(headRow);
+  table.append(thead);
+
+  const tbody = element("tbody");
+  for (const row of SOLVE_ROWS) {
+    const tr = element("tr");
+    const th = element("th", "row-head", row.label) as HTMLTableCellElement;
+    th.setAttribute("scope", "row");
+    tr.append(th, countCell(mixCount(mix, row.key)));
+    tbody.append(tr);
+  }
+  for (const row of MIX_ROWS) {
+    const tr = element("tr");
+    const th = element(
+      "th",
+      "row-head",
+      `${constraintLabel(row.token)} binding`,
+    ) as HTMLTableCellElement;
+    th.setAttribute("scope", "row");
+    tr.append(th, countCell(mixCount(mix, row.key), row.token));
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  scroll.append(table);
+  return scroll;
+}
+
+/** The capacity bin ledger: published range text and published count. */
+function binsTable(bins: readonly CapacityBin[]): HTMLElement {
+  const scroll = element("div", "table-scroll");
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute("aria-label", "Capacity bin ledger, scrolls horizontally");
+
+  const table = element("table", "ledger-table");
+  table.append(
+    element(
+      "caption",
+      undefined,
+      "Capacity bins, low edge inclusive and high edge exclusive, last bin inclusive",
+    ),
+  );
+
+  const headRow = element("tr");
+  for (const header of ["Bin range (US dollars)", "Borrowers (count)"]) {
+    const th = element("th", header.startsWith("Bin range") ? undefined : "num", header);
+    th.setAttribute("scope", "col");
+    headRow.append(th);
+  }
+  const thead = element("thead");
+  thead.append(headRow);
+  table.append(thead);
+
+  const tbody = element("tbody");
+  for (const bin of bins) {
+    const tr = element("tr");
+    const th = element(
+      "th",
+      "row-head",
+      `${edgeText(bin.bin_low)} to ${edgeText(bin.bin_high)}`,
+    ) as HTMLTableCellElement;
+    th.setAttribute("scope", "row");
+    tr.append(th, countCell(bin.count));
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  scroll.append(table);
+  return scroll;
+}
+
+/** Render the committed counts, or keep the honest placeholder. */
+function renderSummary(): void {
+  const host = mount("[data-dashboard-summary]");
+  host.textContent = "";
+  const summary: BookSummary | undefined = book.meta.book_summary;
+
+  if (summary === undefined) {
+    placeholder(
+      host,
+      "Dashboard figures not published yet",
+      "The committed book summary (meta.book_summary) has not landed in " +
+        "book.json, so this page prints no dashboard number. The capacity " +
+        "distribution, binding constraint mix, and feasible and infeasible " +
+        "counts render verbatim from that block when the phase 4 payload " +
+        "build publishes it. Until then the chart slots below keep their " +
+        "honest placeholders.",
+    );
+    return;
+  }
+
+  const mix = summary.binding_constraint_mix;
+  if (mix === undefined) {
+    placeholder(
+      host,
+      "Binding constraint mix not published yet",
+      "meta.book_summary is present in the committed payload, but publishes " +
+        "no binding_constraint_mix, so this section prints no count. Nothing " +
+        "is counted in the browser to fill the gap.",
+    );
+    return;
+  }
+
+  host.append(
+    countsTable(mix),
+    element(
+      "p",
+      "disclosure",
+      "Counts print verbatim from meta.book_summary; nothing is counted, " +
+        "summed, or binned in the browser.",
+    ),
+  );
+}
+
+/** Render the capacity bin ledger, or keep its section honest and empty. */
+function renderBins(): void {
+  const host = mount("[data-dashboard-bins]");
+  host.textContent = "";
+  const summary: BookSummary | undefined = book.meta.book_summary;
+
+  if (summary === undefined) {
+    // The summary placeholder above already states that nothing publishes
+    // yet, so this slot stays empty rather than stacking a second notice.
+    return;
+  }
+  const bins = summary.capacity_distribution;
+  if (bins === undefined || bins.length === 0) {
+    placeholder(
+      host,
+      "Capacity bins not published yet",
+      "meta.book_summary is present in the committed payload, but publishes " +
+        "no capacity_distribution, so this section prints no bin ledger. The " +
+        "bin edges and counts come from the pipeline, never from the browser.",
+    );
+    return;
+  }
+  host.append(
+    binsTable(bins),
+    element(
+      "p",
+      "disclosure",
+      "Bin edges and counts print verbatim from the committed payload; the " +
+        "pipeline did the binning.",
+    ),
+  );
 }
 
 /** One static chart position: asset name, intrinsic size, alt text. */
@@ -116,6 +345,10 @@ const CHARTS: readonly ChartSlot[] = [
   },
 ];
 
+/** The provenance footer printed under every mounted chart. */
+const CHART_PROVENANCE =
+  "Counts computed by the pipeline and published in the committed payload; no figure is computed in the browser.";
+
 /**
  * Mount one build time chart. When generation did not emit the asset
  * (the summary block is not published yet), the honest placeholder
@@ -146,19 +379,13 @@ function renderChart(slot: ChartSlot): void {
 
   scroll.append(image);
   figure.append(scroll);
-  figure.append(
-    element(
-      "figcaption",
-      "chart-note",
-      "Generated at build time from the committed book.json meta.book_summary " +
-        "counts. The bars are a static asset: no figure is computed in the browser.",
-    ),
-  );
+  figure.append(element("figcaption", "chart-note", CHART_PROVENANCE));
   host.append(figure);
 }
 
 renderAsofNote(mount("[data-asof]"), readAsofLink(book.rates.observation_date));
-renderSummaryNotice();
+renderSummary();
+renderBins();
 for (const slot of CHARTS) {
   renderChart(slot);
 }

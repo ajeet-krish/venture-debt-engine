@@ -37,17 +37,73 @@
       <p class="eyebrow">Route: returns</p>
       <h1>Returns</h1>
       <p class="lede">
-        What does the lender earn per structure: IRR, MOIC, interest, and warrant
-        value, base versus downside side by side.
+        What does the lender earn per structure: IRR, MOIC, interest, receipts,
+        closing fee, and warrant value, base versus downside side by side, with
+        the published delta and the rate shock column beside them.
       </p>
-      <div class="notice" role="note">
-        <p class="notice-head"><span class="chip chip-pending">Later phase</span></p>
-        <p>
-          This page ships in a later phase. It will print IRR, MOIC, interest, and
-          warrant value for each structure from the committed payload, with base and
-          downside figures side by side. No figures are shown here until then.
+      <p class="stamp">illustrative sizing, not credit approval</p>
+      <div data-selector></div>
+      <div data-asof></div>
+      <section aria-labelledby="scenario-title">
+        <h2 id="scenario-title">Base versus downside</h2>
+        <p class="section-copy">
+          Each row prints three published figures for the selected borrower: the
+          base value, the downside value, and the pipeline's delta envelope with
+          the label the pipeline published beside it. A delta of exactly zero
+          prints that published label, invariant by construction, and the browser
+          never subtracts: every delta is computed in the pipeline and committed
+          with the payload.
         </p>
-      </div>
+        <div data-returns-table>
+          <div class="notice" role="note">
+            <p class="notice-head">Scenario figures not published yet</p>
+            <p>
+              The committed book has not published the scenarios block yet, so
+              this section prints no base figure, no downside figure, and no
+              delta. The block lands with the phase 4 payload build; until then
+              this page shows no invented number.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="shock-title">
+        <h2 id="shock-title">Rate shock</h2>
+        <p class="section-copy">
+          The shocked schedule prints its own published figures: shocked lender
+          IRR, shocked total interest, the IRR delta, and the sensitivity per
+          100 bp. Both delta figures carry unit bp in the value, printed from
+          the committed envelope, and a shock that publishes no figure shows its
+          stated reason instead.
+        </p>
+        <div data-rate-shock>
+          <div class="notice" role="note">
+            <p class="notice-head">Rate shock figures not published yet</p>
+            <p>
+              The committed book has not published the rate shock block yet, so
+              this section prints no shocked IRR, no shocked interest, and no bp
+              figure. The block lands with the phase 4 payload build.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="covenant-title">
+        <h2 id="covenant-title">Covenant summary</h2>
+        <p class="section-copy">
+          The borrower level first breach month under downside prints as a status
+          chip: a breach names its month, a feasible status reads no breach
+          through the horizon, and not applicable prints its stated reason.
+        </p>
+        <div data-covenant-strip>
+          <div class="notice" role="note">
+            <p class="notice-head">Covenant summary not published yet</p>
+            <p>
+              The committed book has not published the covenants block yet, so
+              this strip prints no first breach month. The block lands with the
+              phase 4 payload build.
+            </p>
+          </div>
+        </div>
+      </section>
     </main>
     <footer class="site-footer">
       <div class="footer-inner">

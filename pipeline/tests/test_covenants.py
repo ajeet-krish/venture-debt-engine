@@ -383,7 +383,6 @@ def test_min_headroom_tracks_the_worst_period_not_the_first_breach():
     assert result.min_headroom == Decimal("-1.5000")
 
 
-@pytest.mark.xfail(strict=False, reason="breach enum lands in phase 4 slice 4")
 def test_validate_payload_accepts_breach_status():
     status = envelope(
         "breach",

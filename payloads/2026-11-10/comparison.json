@@ -41,13 +41,17 @@
             "value": 7025871179
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -145,13 +149,17 @@
             "value": 7025871179
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -248,13 +256,17 @@
             "value": 7025871179
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "21.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -399,13 +411,17 @@
             "value": 4845183089
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -501,13 +517,17 @@
             "value": 4845183089
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "21.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -602,13 +622,17 @@
             "value": 4845183089
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "22.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -757,10 +781,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -871,10 +895,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -984,10 +1008,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -1145,12 +1169,11 @@
             "value": 100000000
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -1247,13 +1270,17 @@
             "value": 100000000
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "8.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -1348,12 +1375,11 @@
             "value": 100000000
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -1493,13 +1519,17 @@
             "value": 245782044
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -1595,13 +1625,17 @@
             "value": 245782044
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "17.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -1696,12 +1730,11 @@
             "value": 245782044
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -1845,13 +1878,17 @@
             "value": 318045276
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -1947,13 +1984,17 @@
             "value": 318045276
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "14.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -2048,12 +2089,11 @@
             "value": 318045276
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -2197,13 +2237,17 @@
             "value": 1298155896
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -2299,13 +2343,17 @@
             "value": 1298155896
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "17.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -2400,12 +2448,11 @@
             "value": 1298155896
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -2549,13 +2596,17 @@
             "value": 15760020533
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -2651,12 +2702,11 @@
             "value": 15760020533
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -2752,12 +2802,11 @@
             "value": 15760020533
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -2901,13 +2950,17 @@
             "value": 2984219640
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -3003,13 +3056,17 @@
             "value": 2984219640
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "14.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -3104,12 +3161,11 @@
             "value": 2984219640
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -3253,13 +3309,17 @@
             "value": 1113838059
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -3355,12 +3415,11 @@
             "value": 1113838059
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -3456,12 +3515,11 @@
             "value": 1113838059
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -3611,10 +3669,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3725,10 +3783,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3838,10 +3896,10 @@
             }
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "reason": "sizing infeasible so no facility exists to fund",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: bisection, runway floor 18.0 months, DSCR floor 1.1500",
               "unit": "status",
               "value": "not_applicable"
             }
@@ -3999,13 +4057,17 @@
             "value": 3193765024
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -4101,13 +4163,17 @@
             "value": 3193765024
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "21.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -4202,13 +4268,17 @@
             "value": 3193765024
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "21.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -4351,13 +4421,17 @@
             "value": 5173642823
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -4455,13 +4529,17 @@
             "value": 5173642823
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -4558,12 +4636,11 @@
             "value": 5173642823
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -4709,13 +4786,17 @@
             "value": 9010056672
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -4811,13 +4892,17 @@
             "value": 9010056672
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "19.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -4912,13 +4997,17 @@
             "value": 9010056672
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "20.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -5061,13 +5150,17 @@
             "value": 9526388004
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -5163,13 +5256,17 @@
             "value": 9526388004
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "17.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -5264,12 +5361,11 @@
             "value": 9526388004
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -5413,13 +5509,17 @@
             "value": 7807918447
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -5515,13 +5615,17 @@
             "value": 7807918447
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "15.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -5616,13 +5720,17 @@
             "value": 7807918447
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "16.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -5765,13 +5873,17 @@
             "value": 5321261477
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -5867,13 +5979,17 @@
             "value": 5321261477
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "29.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -5968,12 +6084,11 @@
             "value": 5321261477
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -6117,13 +6232,17 @@
             "value": 6323212121
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -6221,13 +6340,17 @@
             "value": 6323212121
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -6324,12 +6447,11 @@
             "value": 6323212121
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -6475,13 +6597,17 @@
             "value": 334891512
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -6577,13 +6703,17 @@
             "value": 334891512
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "13.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -6678,13 +6808,17 @@
             "value": 334891512
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "13.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -6827,13 +6961,17 @@
             "value": 8553205588
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -6929,13 +7067,17 @@
             "value": 8553205588
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "18.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -7030,12 +7172,11 @@
             "value": 8553205588
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -7179,13 +7320,17 @@
             "value": 1208270689
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -7281,13 +7426,17 @@
             "value": 1208270689
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "16.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -7382,12 +7531,11 @@
             "value": 1208270689
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -7531,13 +7679,17 @@
             "value": 12722068083
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -7633,13 +7785,17 @@
             "value": 12722068083
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "14.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -7734,13 +7890,17 @@
             "value": 12722068083
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "14.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",
@@ -7883,13 +8043,17 @@
             "value": 5195004655
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -7985,13 +8149,17 @@
             "value": 5195004655
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "42.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -8086,12 +8254,11 @@
             "value": 5195004655
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: no breach through the horizon",
               "unit": "status",
-              "value": "not_applicable"
+              "value": "feasible"
             }
           },
           "io_months": {
@@ -8235,13 +8402,17 @@
             "value": 11492988508
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "1.0"
           },
           "io_months": {
             "reason": "bridge carries no interest-only period, single repayment at maturity",
@@ -8337,13 +8508,17 @@
             "value": 11492988508
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "17.0"
           },
           "io_months": {
             "asof": "2026-11-10",
@@ -8438,13 +8613,17 @@
             "value": 11492988508
           },
           "first_breach_month": {
-            "reason": "covenant engine lands in phase 4",
+            "asof": "2026-11-10",
+            "provenance": "derived: first period index whose covenant headroom is negative",
+            "scale": 1,
             "status": {
               "asof": "2026-11-10",
-              "provenance": "derived: covenant first-breach placeholder, phase 4 replaces it",
+              "provenance": "derived: covenant headroom test against the configured limit",
               "unit": "status",
-              "value": "not_applicable"
-            }
+              "value": "breach"
+            },
+            "unit": "months",
+            "value": "19.0"
           },
           "io_months": {
             "reason": "RBF remittances begin in period 1, no interest-only period",

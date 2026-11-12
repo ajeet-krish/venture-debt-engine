@@ -8,7 +8,12 @@
  * happens here.
  */
 import { centsToDisplayDollars, formatFixed, isoDate, multiple, percent } from "./format";
-import type { Envelope, Unit } from "./payload";
+import {
+  isFirstBreachCell,
+  type Envelope,
+  type FirstBreach,
+  type Unit,
+} from "./payload";
 
 /** The numeric part of an envelope value as a string, never converted. */
 function valueString(value: string | number): string {
@@ -71,4 +76,69 @@ export function constraintLabel(token: string): string {
 /** Display text for a status cell value, for example not_applicable. */
 export function statusLabel(value: string | number): string {
   return String(value).replace(/_/g, " ");
+}
+
+/** Resolved view of a published first breach leaf (architecture P4.1). */
+export interface BreachView {
+  readonly status: string;
+  readonly value?: Envelope;
+  readonly reason?: string;
+}
+
+/** The covenant stamp chip for one first breach view. */
+export interface BreachChip {
+  readonly className: string;
+  readonly text: string;
+  readonly reason?: string;
+}
+
+/**
+ * Resolve a first breach leaf against the reason that may travel as its
+ * sibling under the section 6.4 companion rule. Shape reading only: the
+ * status text comes from the payload and no magnitude is compared.
+ */
+export function breachView(leaf: FirstBreach, siblingReason?: string): BreachView {
+  if (isFirstBreachCell(leaf)) {
+    return {
+      status: String(leaf.status.value),
+      value: leaf.value,
+      reason: leaf.reason ?? siblingReason,
+    };
+  }
+  if (leaf.unit === "months") {
+    return { status: "breach", value: leaf };
+  }
+  return { status: String(leaf.value), reason: siblingReason };
+}
+
+/**
+ * The covenant stamp chip for one first breach view: a breach names its
+ * published month under downside, feasible reads no breach through the
+ * horizon, and any other status prints its label plus its stated reason.
+ */
+export function breachChip(view: BreachView): BreachChip {
+  if (view.status === "breach") {
+    if (view.value === undefined) {
+      return {
+        className: "chip chip-flag",
+        text: "breach",
+        reason: "breach status published without a month value",
+      };
+    }
+    return {
+      className: "chip chip-flag",
+      text: `month ${envelopeText(view.value)} under downside`,
+    };
+  }
+  if (view.status === "feasible") {
+    return { className: "chip chip-pass", text: "no breach through the horizon" };
+  }
+  if (view.reason !== undefined) {
+    return {
+      className: "chip chip-pending",
+      text: statusLabel(view.status),
+      reason: view.reason,
+    };
+  }
+  return { className: "chip chip-pending", text: statusLabel(view.status) };
 }
